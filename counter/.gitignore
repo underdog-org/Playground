@@ -1,0 +1,19 @@
+node_modules/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# expo
+.expo/
+
+# 計數器的持久化檔案
+apps/server/data/
+
+# env
+.env
+.env.local
+*.local
+
+.DS_Store

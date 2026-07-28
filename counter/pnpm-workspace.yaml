@@ -1,0 +1,21 @@
+# 指名底下的Packages
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# 單一版本來源。所有 workspace 用 "catalog:" 引用，只在這裡升版。
+catalog:
+  # React 版本由 Expo SDK 54 (React Native 0.81) 決定，web 跟著對齊。
+  react: 19.1.0
+  react-dom: 19.1.0
+  "@types/react": ~19.1.17
+  "@types/react-dom": ~19.1.11
+
+  typescript: ~6.0.3
+  "@types/node": ^24.13.3
+
+  zod: ^4.4.3
+
+  "@tanstack/react-query": ^5.101.4
+  "@tanstack/react-query-persist-client": ^5.101.4
+  "@tanstack/query-async-storage-persister": ^5.101.4

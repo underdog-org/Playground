@@ -1,0 +1,10 @@
+info:
+  name: counter
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+  variables:
+    - name: baseUrl
+      value: http://localhost:3000

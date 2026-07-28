@@ -1,0 +1,34 @@
+info:
+  name: 拒絕負數
+  type: http
+  seq: 3
+  tags:
+    - counter
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/counter"
+  body:
+    type: json
+    data: |-
+      {
+        "count": -1
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+# OpenAPI 描述不出「這個輸入該被拒絕」，所以這支只能手寫。
+# 它是唯一會在 setValidatorCompiler 掉了的時候變紅的測試。
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: 400
+    - expression: res.body.code
+      operator: eq
+      value: FST_ERR_VALIDATION
