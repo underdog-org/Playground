@@ -1,0 +1,21 @@
+{
+  "name": "web-crawler",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/cli.js",
+  "scripts": {
+    "dev": "node src/cli.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4",
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "jsdom": "^24.1.0",
+    "playwright": "^1.61.1",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2"
+  }
+}

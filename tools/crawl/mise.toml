@@ -1,0 +1,15 @@
+[tools]
+node = "24"
+pnpm = "10"
+
+[env]
+# 把 Playwright 瀏覽器裝在專案內，不污染全局
+PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.playwright"
+
+[tasks.dev]
+description = "互動式爬蟲：mise run dev [url]"
+run = "node src/cli.js"
+
+[tasks.setup]
+description = "安裝依賴與 Playwright 瀏覽器"
+run = ["pnpm install", "pnpm exec playwright install chromium"]
