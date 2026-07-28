@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tracker = BiometricSessionTracker()
     private var machine = NotchAnimationStateMachine()
 
+    /// 進入 `scanning` 的時刻，用來算掃描動畫還差多久播完。
+    private var scanStartedAt: ContinuousClock.Instant?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard let screen = NotchWindow.notchedScreen(),
               let notch = NotchWindow(screen: screen)
@@ -52,8 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         streamTask = Task { [weak self] in
             guard let self else { return }
+            // 循序 await —— `handle` 內可能為了等動畫播完而暫停，
+            // 期間到達的事件會留在 AsyncStream 的緩衝裡，順序不會亂。
             for await event in eventStream.start() {
-                handle(event)
+                await handle(event)
             }
         }
     }
@@ -62,10 +67,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         streamTask?.cancel()
     }
 
-    private func handle(_ event: BiometricEvent) {
+    private func handle(_ event: BiometricEvent) async {
         for session in tracker.handle(event) {
             guard let state = machine.handle(session) else { continue }
+
+            // 成功來得比掃描動畫快是常態，先把指紋畫完再接成功段。
+            if state == .success {
+                await waitForScanToFinish()
+            }
+
             notchWindow?.apply(state)
+
+            switch state {
+            case .scanning: scanStartedAt = .now
+            case .hidden: scanStartedAt = nil    // 別讓上一輪的時戳影響下一次
+            default: break
+            }
 
             if state == .success {
                 Task { [weak self] in
@@ -75,6 +92,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    /// 掃描動畫若還沒播完就先等它 —— 指紋畫到一半跳成功會很突兀。
+    /// 從未進入過 `scanning` 時直接放行。
+    private func waitForScanToFinish() async {
+        guard let start = scanStartedAt else { return }
+        let remaining = TouchIDAnimation.scanDuration - (ContinuousClock.now - start)
+        guard remaining > .zero else { return }
+        try? await Task.sleep(for: remaining)
     }
 
     @objc private func testAnimation() {

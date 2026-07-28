@@ -8,7 +8,7 @@
 | 項目 | 決定 |
 |---|---|
 | 觸發方案 | **A — Unified log 串流**（不做 PAM module，不做 Accessibility） |
-| 動畫 | Lottie，**單一 `touchid.json` + markers** |
+| 動畫 | Lottie，單一 `touchid.json`，切點以 frame 編號寫在 `TouchIDAnimation` |
 | 動畫顆粒度 | 跟手指走：待命呼吸 → finger-on 掃描 → matched 成功 → 收起 |
 | 展開形態 | 瀏海下方長出黑色圓角膠囊（Alcove 式），spring 展開 |
 | 觸發範圍 | 全部來源，鎖定畫面期間靜音 |
