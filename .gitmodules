@@ -1,0 +1,9 @@
+[submodule "easy-english"]
+	path = easy-english
+	url = git@github.com:underdog-org/easy-english.git
+[submodule "minimal-claude-statusline"]
+	path = minimal-claude-statusline
+	url = git@github.com:underdog-org/minimal-claude-statusline.git
+[submodule "easy-widget"]
+	path = easy-widget
+	url = git@github.com:underdog-org/easy-widget.git
