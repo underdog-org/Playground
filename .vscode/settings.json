@@ -1,5 +1,6 @@
 {
-    "material-icon-theme.folders.customClones": [
-          { "name": "claude-tool", "base": "claude" }
-    ]
+   "material-icon-theme.folders.associations": {
+    "claude-tool":"Claude",
+    "raycast": "App"
+   },
 }
