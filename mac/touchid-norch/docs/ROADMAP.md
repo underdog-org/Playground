@@ -88,9 +88,31 @@
 - [ ] borderless window + level / collectionBehavior
 - [ ] 靜態黑色膠囊，先不接動畫
 
-### Step 4 — AnimationController
-- [ ] Lottie 整合，markers 播放控制
-- [ ] 狀態機 + 單元測試
+### Step 4 — AnimationController ✅ 完成
+- [x] `NotchAnimationStateMachine` + 9 個單元測試
+- [x] Lottie 整合（`lottie-spm` 4.6.1）
+- [x] 時間軸切點集中於 `TouchIDAnimation`
+
+**素材實況（`touchid.json`）**
+
+- 1000×1000、60fps、152 frames、Lottie 5.5.7，四張指紋弧線為**內嵌 base64 PNG**（無外部依賴）
+- 原規格的四段 markers 用不上 —— 這是一次性描繪動畫，**沒有可無縫循環的段落**
+- 改用**單一切點**：`Click Outlines` 圖層的 in-point = frame 97
+
+| 狀態 | 做法 |
+|---|---|
+| `breathing` | 定格 frame 0，律動由 SwiftUI `phaseAnimator` 提供 |
+| `scanning` | 播 0 → 97，3 倍速（2.53s 原速太長，加速後約 0.54s），播完停在最後一格 |
+| `success` | 播 97 → 152，原速約 0.92s |
+
+**為何 scanning 播完要定格**：掃描時間長短不固定（手指可能停 0.3s 也可能 3s），
+固定長度的動畫播完後必須維持在完成狀態等待結果，不能循環也不能收起。
+
+**膠囊與指標同步**：指標用 `.clipShape` 裁進膠囊，收合時必然一起消失 ——
+比起去對齊 spring 與淡出兩條不同的動畫曲線，用幾何約束更可靠。
+
+**尚未由真人確認**：`restFrame = 0` 的靜止畫面是否合適、28pt 下的可讀性。
+`LottieScrubber` 提供尺寸對照可重新評估。
 
 ### Step 5 — 串接與韌性
 - [ ] NotchCoordinator 串三者

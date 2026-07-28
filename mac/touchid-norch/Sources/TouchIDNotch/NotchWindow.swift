@@ -6,12 +6,11 @@ import TouchIDNotchCore
 @MainActor
 final class NotchWindow {
 
-    /// 膠囊左右各外擴的寬度
-    private static let shoulder: CGFloat = 12
-    /// 膠囊往瀏海下方延伸的高度
-    private static let drop: CGFloat = 36
-    /// 成功動畫停留時間，之後自動收起
-    static let successHold: Duration = .milliseconds(900)
+    private static let shoulder = NotchLayout.shoulder
+    private static let drop = NotchLayout.drop
+    /// 成功狀態的維持時間，之後自動收起。
+    /// 由素材的成功段長度加上留白推算，改動畫速度時會自動跟著變。
+    static var successHold: Duration { TouchIDAnimation.successHold }
 
     private let window: NSWindow
     private let model = NotchViewModel()
@@ -32,7 +31,11 @@ final class NotchWindow {
         ) else { return nil }
 
         // 視窗固定為展開後的最大尺寸，展開收合在內部畫。
-        let frame = metrics.capsuleFrame(shoulder: Self.shoulder, drop: Self.drop)
+        // 寬度要多留內凹弧線的部分，否則膠囊本體會被視窗邊界裁掉。
+        let frame = metrics.capsuleFrame(
+            shoulder: Self.shoulder + NotchLayout.topFlare,
+            drop: Self.drop
+        )
 
         window = NSWindow(
             contentRect: frame,
@@ -40,7 +43,7 @@ final class NotchWindow {
             backing: .buffered,
             defer: false
         )
-         window.isOpaque = false
+        window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.level = .statusBar
