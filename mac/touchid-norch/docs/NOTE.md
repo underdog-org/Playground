@@ -119,3 +119,7 @@ menu.addItem(
 
 **Animation**
 - finished 那段是這個檔案的重點。matched 和 finished 在 log 裡只差幾毫秒 —— 如果一收到 finished 就收起瀏海，成功動畫根本來不及播。所以成功路徑的收起交給動畫層用時間驅動，tracker 只管語意。
+
+### UI
+
+- orderFrontRegardless() 而非 makeKeyAndOrderFront(_:) —— 後者會搶焦點，把使用者正在打字的視窗踢掉
