@@ -98,6 +98,7 @@ auth       sufficient     pam_tid.so
 - **IMPORTANT** `app.setActivationPolicy(.accessory)`	關鍵：設為 .accessory 讓 app 不顯示在 Dock、也不顯示選單列；但因為我們同時有 statusItem，所以選單列圖示還是會出現。效果就是「只有選單列圖示，沒有 Dock」。
 - `setActivationPolicy` 要在 app.run() 之前呼叫，不然 Dock 圖示會先閃一下
 - **IMPORTANT** delegate 是 weak reference，寫成 app.delegate = AppDelegate() 會當場被釋放，選單列什麼都不會出現
+- `#expect` 是 Swift Testing 的巨集，效果等同 XCTAssert，但在失敗時會給更詳細的 diff 資訊。
 
 
 **製作結束綁定**
@@ -111,3 +112,10 @@ menu.addItem(
     )
 )
 ```
+
+**BiometricEventStream** 並發模型製作
+- log stream --style ndjson 輸出的管線在核心層級是一塊一塊的（availableData）
+- Buffer 隔開 producer 與 consumer 之間在速率、粒度或時序上的不匹配。
+
+**Animation**
+- finished 那段是這個檔案的重點。matched 和 finished 在 log 裡只差幾毫秒 —— 如果一收到 finished 就收起瀏海，成功動畫根本來不及播。所以成功路徑的收起交給動畫層用時間驅動，tracker 只管語意。

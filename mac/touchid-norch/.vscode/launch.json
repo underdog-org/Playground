@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:touchid-norch}",
+            "name": "Debug TouchIDNotch",
+            "target": "TouchIDNotch",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug TouchIDNotch"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:touchid-norch}",
+            "name": "Release TouchIDNotch",
+            "target": "TouchIDNotch",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release TouchIDNotch"
+        }
+    ]
+}

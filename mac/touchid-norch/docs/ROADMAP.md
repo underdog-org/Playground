@@ -58,16 +58,30 @@
 - 量測工具保留於 `tools/measure-latency.py`，macOS 大版本更新後可重跑驗證
 
 ### Step 1 — 專案骨架
-- [ ] `swift package init --type executable`
-- [ ] Package.swift 設定 macOS 26 平台 + Lottie 依賴
-- [ ] 最小 NSApplication + `setActivationPolicy(.accessory)`，確認能跑
+- [x] ~~`swift package init --type executable`~~直接手寫
+- [x] Package.swift 設定 macOS 26 平台 + ~~Lottie 依賴~~
+- [x] 最小 NSApplication + `setActivationPolicy(.accessory)`，確認能跑
 
-### Step 2 — BiometricEventStream（無 UI，可測）
-- [ ] 錄製 ndjson fixture
-- [ ] LineBuffer 跨 chunk 半行處理
-- [ ] regex parser → `BiometricEvent`
-- [ ] 依 `[N]` 分組追蹤
-- [ ] 單元測試（不需按指紋）
+### Step 2 — BiometricEventStream（無 UI，可測）✅ 完成
+- [x] `BiometricLogParser`：ndjson → `BiometricEvent`
+- [x] `LineBuffer`：跨 chunk 半行處理，只在換行時解碼 UTF-8
+- [x] `BiometricEventStream`：`log stream` 子行程 + 序列佇列保序
+- [x] `BiometricSessionTracker`：依 `[N]` 分組、去重、認養
+- [x] 27 個單元測試，全部離線（不需按指紋）
+
+**實測補充（macOS 26.5.2）**
+
+- 六種事件字串**全部**位於 category `Server,Interactive,Biometry`，故 predicate 可窄化
+- log 會**先後印出兩行終止事件**（`has finished with` 與 `dropped`），必須去重
+- `matched` 與 `finished` 只差幾毫秒 → 成功時不可直接收起，否則成功動畫來不及播；
+  成功路徑的收起改由動畫層用時間驅動
+- 按錯手指有**兩種**系統行為：同一 id 內重試（`fingerOff → fingerOn → matched`），
+  或終止並退回密碼輸入（`fingerOff → finished`）。兩者皆已涵蓋
+- 取消（Ctrl-C）→ `matching → finished`，對應 `began → ended`
+- `will start matching` 每次都會發；App 啟動時序造成的遺漏由 `fingerOn` 認養機制兜底
+
+**併發模型**：`BiometricEventStream` 的解析全在單一序列佇列上，
+不可改用 `Task {}` 分派 —— 那會失去順序保證，導致 `fingerOn` 排到 `matched` 之後。
 
 ### Step 3 — NotchWindow
 - [ ] NSScreen 瀏海幾何計算
