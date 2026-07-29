@@ -6,6 +6,8 @@
 //   src/schema/*.ts      自有領土：product / permission / role / plan / seat / audit_log
 //   src/client.ts        drizzle 連線
 //
-// Stage 0.3 補上 drizzle 連線，0.4 由 Better Auth CLI 產生 auth.ts。
+// 0.4 起由 Better Auth CLI 產生 auth.ts，Stage 2+ 開始長出自有領土的表。
 
-export {};
+export { createDb, type Database } from "./client.ts";
+export { requireDatabaseUrl } from "./env.ts";
+export * as schema from "./schema/index.ts";

@@ -1,6 +1,5 @@
 # Learning Notes
 
-
 ## Docker Compose & Images
 
 1. 用 ${VAR:?訊息} 而不是 ${VAR:-預設值}
@@ -18,3 +17,13 @@ pg_isready 不帶參數會用執行者身分查同名資料庫（root/root），
 3. Mailpit 不掛 volume
 
 開發用信箱沒有保存價值，MP_MAX_MESSAGES: 500 讓它自己滾動就夠，省一個 volume。
+
+
+## Drizzle & DB
+
+1. 在 Fastify 起來之前先建連線：DATABASE_URL 沒設的話這裡就會擋下來，而不是等到第一個查詢進來才發現。process.env 由 dev script 的 --env-file 填。
+
+```ts
+// apps/server/src/index.ts
+const { db, sql } = createDb();
+```

@@ -32,26 +32,27 @@
 
 ## 目前狀態
 
-**進度：Stage 0.1 已完成，下一步 0.2。**
+**進度：Stage 0.3 已完成，下一步 0.4。**
 
 | 階段                     | 狀態      |
 | ------------------------ | --------- |
 | 0.1 Scaffold 重構        | ✅ 已驗收 |
-| 0.2 Docker Postgres      | ⬜ 未開始 |
-| 0.3 `@ims/db`            | ⬜ 未開始 |
+| 0.2 Docker Postgres      | ✅ 已驗收 |
+| 0.3 `@ims/db`            | ✅ 已驗收 |
 | 0.4 Better Auth 最小可用 | ⬜ 未開始 |
 | 0.5 R1 Spike             | ⬜ 未開始 |
 | Stage 1–6+               | ⬜ 未開始 |
 
-Scaffold 原由 counter 專案沿用而來，經 0.1 清理後現況：
+Scaffold 原由 counter 專案沿用而來，經 0.1–0.3 之後的現況：
 
 - pnpm workspace + catalog（單一版本來源），scope 為 `@ims/*`
 - `apps/{web,mobile,server}` — Vite React / Expo / Fastify，counter UI 已清為最小外殼
-- `packages/{db,policy,contract,design}` — 前三者是空骨架，`design` 沿用既有 token
-- Fastify + `fastify-type-provider-zod` + Swagger + Scalar 可運作，目前只有 `/health`
-- oxlint / oxfmt / mise / vitest
+- `packages/{db,policy,contract,design}` — `db` 有 drizzle 連線但 schema 仍空；`policy` / `contract` 是骨架；`design` 沿用既有 token
+- `docker-compose.yml` — Postgres 17 + Mailpit，變數全走根目錄 `.env`
+- Fastify + `fastify-type-provider-zod` + Swagger + Scalar 可運作，目前只有 `/health`（含 DB 檢查）
+- oxlint / oxfmt / mise / vitest / drizzle-kit
 
-**尚缺**：Postgres（Docker）、Drizzle、Better Auth——也就是 0.2 之後的內容。
+**尚缺**：Better Auth 與任何一張資料表——也就是 0.4 之後的內容。
 
 ---
 
@@ -240,16 +241,50 @@ driver 選 `postgres`（postgres.js）而非 `pg`：Drizzle 官方對兩者都�
 
 catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實際 `dependencies` 要到各自的進場階段才加。
 
+#### 誰負責載入 `.env`
+
+`@ims/db` **不自己載 `.env`**，只讀 `process.env.DATABASE_URL`，缺了就丟一個講清楚該做什麼的錯誤（`src/env.ts`）。誰把變數放進 `process.env` 是呼叫端的事：
+
+| 呼叫端        | 載入方式                                                     |
+| ------------- | ------------------------------------------------------------ |
+| `apps/server` | dev script 的 `tsx --env-file-if-exists=../../.env`          |
+| `drizzle-kit` | `drizzle.config.ts` 裡的 `process.loadEnvFile("../../.env")` |
+
+兩邊都用 Node 內建能力，不裝 `dotenv`（Node 20.12+ 就有 `--env-file` 與 `loadEnvFile`）。
+
+之所以不讓 db 自己載：那樣測試或 CI 想換連線字串時會發現改不動——package 會固執地去讀那個檔案。`-if-exists` 變體則是為了 CI：那裡的變數由環境注入，沒有 `.env` 檔，不該因此啟動失敗。
+
+#### 兩個連線設定
+
+`postgres(url, { prepare: false })` —— postgres.js 預設開 prepared statement，日後擺在 PgBouncer 的 transaction pooling 後面會直接壞掉。開發階段的查詢量吃不到 prepared 的好處，先關著，省得上了 pooler 才發現。
+
+`drizzle(sql, { schema })` —— 傳 schema 進去才有 `db.query.<table>` 這種 relational query API，少了它只剩 `db.select()`。0.4 之後 schema 有內容時差別才看得出來。
+
+#### generate + migrate，不用 push
+
+`drizzle-kit push` 直接改資料庫、不留檔案，適合玩 schema；`generate` 產出可 review、可進版控的 migration 檔。認證系統的 schema 變更需要能回答「什麼時候改了什麼」，所以走後者。config 開 `strict: true` + `verbose: true`，破壞性變更會先問過再執行。
+
+#### `/health` 拆成兩個欄位
+
+`{ status, db }`。server 活著但 DB 連不上是**不同**的故障——兩者都回 500 的話，看到的人得自己猜是哪一種。DB 掛掉時回 `503 { status: "degraded", db: "down" }`。
+
+順帶補了 SIGINT/SIGTERM 時 `sql.end()` 的收尾：`tsx watch` 每次重載都留一批連線給 Postgres 的話，開發幾十次就會撞到 `max_connections`。
+
 #### 0.3 Checklist
 
-- [ ] `packages/db` 加入 `drizzle-orm`、`postgres` 依賴；devDeps 加 `drizzle-kit`（皆用 `catalog:`）
-- [ ] 寫 `src/client.ts`：讀 `DATABASE_URL`，建立 drizzle 連線並具名匯出
-- [ ] 寫 `drizzle.config.ts`：schema 路徑指向 `src/schema/`，dialect 為 postgresql
-- [ ] `packages/db/package.json` 加上 `db:generate` / `db:migrate` script
-- [ ] `apps/server` 加入 `@ims/db` workspace 依賴
-- [ ] `/health` 加上 DB 連線檢查（DB 掛掉時要回非 200，不能假裝健康）
-- [ ] 型別全綠 → 驗證：`pnpm typecheck`
-- [ ] 連線真的通 → 驗證：`pnpm server` 後 `curl localhost:3000/health`，關掉 DB 容器再打一次應該要失敗
+- [x] `packages/db` 加入 `drizzle-orm`、`postgres` 依賴；devDeps 加 `drizzle-kit`（皆用 `catalog:`）
+- [x] 寫 `src/client.ts`：`createDb()` 回傳 `{ db, sql }`，並匯出 `Database` 型別
+- [x] 寫 `src/env.ts`：`requireDatabaseUrl()` 集中缺變數時的錯誤訊息
+- [x] 寫 `drizzle.config.ts`：dialect postgresql、schema 指向 `src/schema/index.ts`、out `./drizzle`
+- [x] `packages/db/package.json` 加上 `db:generate` / `db:migrate` / `db:studio`
+- [x] `apps/server` 加入 `@ims/db` 依賴，dev script 補 `--env-file-if-exists`
+- [x] `/health` 加上 DB 連線檢查，DB 掛掉回 503
+- [x] 型別全綠 → 驗證：`pnpm typecheck`（7/7）
+- [x] drizzle-kit 讀得到設定與 `.env` → 驗證：`pnpm --filter @ims/db db:generate` 回 `0 tables`（schema 還是空的，符合預期）
+- [x] 連線真的通 → 驗證：`curl localhost:3000/health` → `{"status":"ok","db":"up"}` 200
+- [x] DB 掛掉不會假裝健康 → 驗證：`docker compose stop postgres` → `{"status":"degraded","db":"down"}` 503，start 後自動回 200
+- [x] 缺 `DATABASE_URL` 會早死 → 驗證：`DATABASE_URL= tsx -e '...createDb()'` 印出中文提示而非 driver 錯誤
+- [x] 關閉時不漏連線 → 驗證：SIGTERM 後 `pg_stat_activity` 的 `postgres.js` 連線數歸 0
 
 ### 0.4 Better Auth 最小可用
 

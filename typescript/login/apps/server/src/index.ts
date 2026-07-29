@@ -10,7 +10,15 @@ import fastifySwagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
 import { z } from "zod";
 
+import { createDb } from "@ims/db";
+
 const PORT = Number(process.env.PORT ?? 3000);
+
+// 在 Fastify 起來之前先建連線：DATABASE_URL 沒設的話這裡就會擋下來，
+// 而不是等到第一個查詢進來才發現。process.env 由 dev script 的 --env-file 填。
+// db 現在還沒有人用（schema 是空的），0.4 起 Better Auth 的 adapter 會接上去。
+const { db, sql } = createDb();
+void db;
 
 // 初始化App
 const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
@@ -51,8 +59,9 @@ await app.register(cors, {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
 });
 
-// 唯一的路由：讓「server 起得來、docs 打得開」有東西可驗。
-// Stage 0.3 之後這裡要加上 DB 連線檢查。
+// 唯一的路由：讓「server 起得來、DB 連得上、docs 打得開」有東西可驗。
+// 分成 status 與 db 兩個欄位：server 活著但 DB 連不上是**不同**的故障，
+// 兩者都回 500 的話，看到的人得自己去猜是哪一種。
 app.get(
   "/health",
   {
@@ -60,11 +69,34 @@ app.get(
       operationId: "health",
       summary: "存活檢查",
       tags: ["meta"],
-      response: { 200: z.object({ status: z.literal("ok") }) },
+      response: {
+        200: z.object({ status: z.literal("ok"), db: z.literal("up") }),
+        503: z.object({ status: z.literal("degraded"), db: z.literal("down") }),
+      },
     },
   },
-  () => ({ status: "ok" as const }),
+  async (_req, reply) => {
+    try {
+      await sql`select 1`;
+      return { status: "ok" as const, db: "up" as const };
+    } catch (err) {
+      app.log.error({ err }, "health: database unreachable");
+      return reply.code(503).send({ status: "degraded" as const, db: "down" as const });
+    }
+  },
 );
 
 // 0.0.0.0 而非預設的 127.0.0.1，否則實體手機從區網連不進來
 await app.listen({ port: PORT, host: "0.0.0.0" });
+
+// 收到 SIGINT/SIGTERM 時要把連線池關掉，否則 tsx watch 每次重載都留一批
+// 連線給 Postgres，開發幾十次之後會撞到 max_connections。
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    void (async () => {
+      await app.close();
+      await sql.end();
+      process.exit(0);
+    })();
+  });
+}
