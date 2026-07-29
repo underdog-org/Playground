@@ -221,7 +221,7 @@ oidcProvider({
 
 ## 9. Monorepo 結構
 
-現有 scaffold 由 counter 專案沿用而來，`packages/{contract,design}` 的內容是 counter 的產物，需整批重新設計。
+現有 scaffold 由 counter 專案沿用而來。`packages/contract` 的內容是 counter 的產物，已清空重新設計；`packages/design` 的 token 與領域無關，沿用（見 ROADMAP 0.1 d）。
 
 ### Scope 命名
 

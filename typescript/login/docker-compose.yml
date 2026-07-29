@@ -1,0 +1,46 @@
+# 開發用，不是生產設定。
+# 沒有 TLS、沒有備份、密碼寫在 .env 裡——這些在本機沒問題，上線前全部要換掉。
+#
+# compose 會自動讀取同目錄的 .env。所有變數都用 ${VAR:?訊息} 的形式：
+# 少設一個就直接報錯停下，而不是拿空字串起一個連不上的 DB。
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ims-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME 未設定，請從 .env.example 複製一份 .env}
+      POSTGRES_USER: ${DB_USER:?DB_USER 未設定}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未設定}
+    ports:
+      # 左邊可透過 DB_PORT 改，避免與本機已裝的 Postgres 撞port
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # 帶 -U/-d：預設的 pg_isready 會用 root 身分查 root 資料庫，那個庫不存在。
+      # server 之後要 depends_on 這個 healthcheck，不然會連到還沒 ready 的 DB。
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Stage 2 的 MailPort 會用到。現在先起著，省得之後再回來改 compose。
+  # verification / reset / invitation / 2FA 四種信都會寄到這裡，不會真的送出去。
+  mailpit:
+    image: axllent/mailpit:v1.30
+    container_name: ims-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025" # SMTP，給 server 寄信用
+      - "${MAILPIT_UI_PORT:-8025}:8025" # Web UI，用瀏覽器看收到的信
+    environment:
+      # 開發用信箱不需要永久保存，關掉磁碟持久化就不必再多一個 volume
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  postgres-data:

@@ -14,21 +14,44 @@
 
 ---
 
+## 給 Agent：如何維護本文件的進度
+
+本文件同時是**規格**與**進度看板**。checkbox 是唯一的進度來源，不要另外開一份。
+
+規則：
+
+1. **勾選的時機是驗收通過之後，不是程式寫完之後。** 每個 checkbox 後面若有 `→ 驗證：<指令>`，就是實際跑過那個指令、看到它綠了才勾。沒跑過不准勾。
+2. **一次只推進一個子階段**（0.1 → 0.2 → …）。上一個沒全綠就不要動下一個。
+3. **範圍變了就改文字，不要偷偷跳過。** 若某項做不到或決定不做，把該行改成 `- [~]` 並在同一行後面加 `——（不做的理由）`，不要直接刪掉。刪掉等於湮滅決策紀錄，違反本專案的目的。
+4. **臨時長出來的工作要補進清單**，補在對應子階段底下，用同樣的格式。
+5. **決策一旦拍板就寫回文件**：影響「為什麼這樣設計」的寫進 ARCHITECTURE，影響「怎麼做、什麼時候做」的寫進本文件。R1 的結論固定寫回 ARCHITECTURE §8。
+
+圖例：`- [ ]` 未開始／進行中｜`- [x]` 已驗收｜`- [~]` 刻意不做（後面必須寫理由）
+
+---
+
 ## 目前狀態
 
-Scaffold 由 counter 專案沿用而來，已具備：
+**進度：Stage 0.1 已完成，下一步 0.2。**
 
-- pnpm workspace + catalog（單一版本來源）
-- `apps/{web,mobile,server}` — Vite React / Expo / Fastify
-- `packages/{contract,design}` — zod schema + client / design tokens
-- Fastify + `fastify-type-provider-zod` + Swagger + Scalar 已可運作
-- oxlint / oxfmt / mise
+| 階段                     | 狀態      |
+| ------------------------ | --------- |
+| 0.1 Scaffold 重構        | ✅ 已驗收 |
+| 0.2 Docker Postgres      | ⬜ 未開始 |
+| 0.3 `@ims/db`            | ⬜ 未開始 |
+| 0.4 Better Auth 最小可用 | ⬜ 未開始 |
+| 0.5 R1 Spike             | ⬜ 未開始 |
+| Stage 1–6+               | ⬜ 未開始 |
 
-**尚缺**：Postgres（Docker）、Drizzle、Better Auth、`packages/db`、`packages/policy`。
+Scaffold 原由 counter 專案沿用而來，經 0.1 清理後現況：
 
-**且需重構**：`@counter/*` 命名、counter 的領域程式碼（API、store、契約、UI）、`packages/contract` 的內容，以及 `create-vite` / `create-expo` 留下的模板檔案。這些都是 counter 與腳手架的產物，與本專案無關。（`packages/design` 沿用，見 0.1 d）
+- pnpm workspace + catalog（單一版本來源），scope 為 `@ims/*`
+- `apps/{web,mobile,server}` — Vite React / Expo / Fastify，counter UI 已清為最小外殼
+- `packages/{db,policy,contract,design}` — 前三者是空骨架，`design` 沿用既有 token
+- Fastify + `fastify-type-provider-zod` + Swagger + Scalar 可運作，目前只有 `/health`
+- oxlint / oxfmt / mise / vitest
 
-以上都是 Stage 0 的內容。
+**尚缺**：Postgres（Docker）、Drizzle、Better Auth——也就是 0.2 之後的內容。
 
 ---
 
@@ -85,8 +108,11 @@ counter 之外，scaffold 也留下一批 `create-vite` / `create-expo` 的模�
 | `apps/web/src/assets/`（`react.svg`、`vite.svg`、`hero.png`） | 刪除——無任何引用                                            |
 | `apps/web/public/icons.svg`                                   | 刪除——無任何引用（`favicon.svg` 保留，`index.html` 有引用） |
 | `apps/web/dist/`、`apps/mobile/.expo/`                        | 刪除，並補進 `.gitignore`                                   |
+| `apps/web/.gitignore`                                         | 刪除——create-vite 的樣板，內容已被根 `.gitignore` 涵蓋      |
 
-`.gitignore` 現在只有 `node_modules/`。補上建置產物與 `.env`——這類檔案一旦被提交，之後要清就是改寫歷史。
+根 `.gitignore` 原本只有 `node_modules/`。補上建置產物、`.env` 與編輯器檔案——這類檔案一旦被提交，之後要清就是改寫歷史。
+
+`apps/mobile/.gitignore` **保留**：它不只是樣板，還擋掉 RN 專屬且真的敏感的東西（`*.jks`、`*.p8`、`*.p12`、`*.key`、`*.mobileprovision` 這些簽章金鑰）。這種清單交給 Expo 維護比自己重寫安全。
 
 **a-3. 移除 query 持久化層**
 
@@ -122,6 +148,28 @@ packages/
 
 因此 Stage 0 不動 `design`，只把**使用它的 counter UI** 清掉。若 Stage 1 選了現成 UI 元件庫，屆時再調整 token 的值，不影響 package 的存在。
 
+#### 0.1 Checklist
+
+- [x] 刪除 `apps/server/src/store.ts`、`apps/server/data/`
+- [x] 刪除 `/api/counter` 路由，保留 Fastify + zod provider + Swagger/Scalar + CORS 骨架與既有註解
+- [x] 刪除 Bruno collection `apps/server/api/counter/`，`opencollection.yml` 改名為 IMS API
+- [x] 刪除 `packages/contract/src/{counter,client}.ts`，`index.ts` 清空為說明用的空模組
+- [x] `apps/web`、`apps/mobile` 的 counter UI 清為最小外殼，刪除兩邊的 `api.ts`
+- [x] 刪除模板檔案：兩個 `README.md`、`apps/web/src/assets/`、`public/icons.svg`、`apps/web/.gitignore`
+- [x] 刪除建置產物 `apps/web/dist/`、`apps/mobile/.expo/`，補進根 `.gitignore`（含 `.env`、logs、編輯器）
+- [x] 移除 `react-query-persist-client` + `query-async-storage-persister`（含 catalog 條目），保留 `@tanstack/react-query`
+- [x] 全面改名 `@counter/*` → `@ims/*`：root `name` 與 `--filter`、各 workspace `name`、相互依賴、所有 import
+- [x] 新建 `packages/db` 骨架（`src/index.ts`、`src/schema/index.ts`、tsconfig）
+- [x] 新建 `packages/policy` 骨架（package、tsconfig、`vitest.config.ts`）
+- [x] catalog 補上 drizzle-orm / drizzle-kit / postgres / better-auth / vitest（僅版本來源，未安裝）
+- [x] 全專案零 counter 殘留 → 驗證：`grep -rni counter --exclude-dir=node_modules .`（只剩 docs 敘述）
+- [x] 型別與 lint 全綠 → 驗證：`pnpm typecheck && pnpm lint && pnpm format:check`
+- [x] 測試指令可跑 → 驗證：`pnpm test`
+- [x] server 起得來 → 驗證：`pnpm server` 後 `curl localhost:3000/health` 回 `{"status":"ok"}`
+- [x] web 建得起來 → 驗證：`pnpm --filter @ims/web build`
+
+已知未解、不擋 0.2：Expo 的 `@expo/require-utils` 要求 `typescript@^5`，catalog 是 `~6.0.3`，`pnpm install` 會出 peer 警告。typecheck 全綠故暫不處理，Stage 6 之前要收掉。
+
 ### 0.2 Docker Postgres
 
 `docker-compose.yml`（開發用，非生產設定）：
@@ -129,6 +177,37 @@ packages/
 - Postgres，固定 port 與 volume
 - 一併帶 Mailpit（Stage 2 的 `MailPort` 會用到，先備好省得之後再改 compose）
 - `.env.example` 補上 `DATABASE_URL`
+
+**實際版本**：`postgres:17-alpine`、`axllent/mailpit:v1.30`。兩個都釘版本——compose 用 `latest` 的話，換台機器起出來的可能是不同版本的 DB，這種差異最難查。
+
+**變數全部走 `.env`**，且用 `${VAR:?訊息}` 而非 `${VAR:-預設值}`：
+
+```yaml
+POSTGRES_DB: ${DB_NAME:?DB_NAME 未設定，請從 .env.example 複製一份 .env}
+```
+
+差別在於**沒設變數時要早死還是晚死**。給預設值的話，忘了建 `.env` 會安靜地起一個名字不對的資料庫，等到 Drizzle migrate 失敗才發現；`:?` 則是 `docker compose up` 當場報錯並指出該做什麼。port 這種「不影響正確性、只是避免撞port」的才用 `:-` 給預設值。
+
+**開發憑證**：`ims` / `root` / `password123`。刻意簡單，只在本機用。`.env` 已被 `.gitignore` 擋掉，提交的只有 `.env.example`。
+
+**`DATABASE_URL` 是手動同步的**：compose 沒辦法從那四個變數幫你組出連線字串，所以 `.env` 裡它是獨立一行，改帳密時兩邊都要改。這是這份設定唯一的重複，記在 `.env.example` 的註解裡。
+
+**healthcheck 的 `-U` / `-d` 不能省**：`pg_isready` 不帶參數時會用執行者身分去查同名資料庫（`root` / `root`），那個庫不存在，於是永遠 unhealthy。0.4 的 server 要 `depends_on: service_healthy`，這個 healthcheck 必須是真的。
+
+**Mailpit 不掛 volume**：開發用信箱沒有保存價值，`MP_MAX_MESSAGES: 500` 讓它自己滾動就夠。
+
+#### 0.2 Checklist
+
+- [x] 建立 `docker-compose.yml`：Postgres 服務（`postgres:17-alpine`），`DB_PORT` 可調，具名 volume `postgres-data`
+- [x] 同一份 compose 加入 Mailpit（`v1.30`，SMTP 1025 + Web UI 8025）
+- [x] 根目錄 `.env.example` 補 `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_PORT` / `DATABASE_URL` / Mailpit ports / `PORT`
+- [x] 變數缺漏會擋下來 → 驗證：`docker compose --env-file /dev/null config` 報 `required variable DB_NAME is missing a value`
+- [x] 容器起得來 → 驗證：`docker compose up -d && docker compose ps` 兩者皆 healthy
+- [x] DB 連得上 → 驗證：`docker compose exec postgres psql -U root -d ims -c 'select 1'`
+- [x] Mailpit UI 打得開 → 驗證：`curl -o /dev/null -w '%{http_code}' localhost:8025` 回 200；SMTP 1025 可連
+- [x] 資料有持久性 → 驗證：建表寫入 → `docker compose restart` → 資料仍在
+
+尚未接上：`apps/server` 目前不讀根目錄的 `.env`（`PORT` / `DATABASE_URL` 都還沒有人消費）。這件事屬於 0.3 —— 建立 drizzle 連線時一併決定載入方式（`node --env-file` 或 dotenv），現在先不動。
 
 ### 0.3 @ims/db
 
@@ -161,6 +240,17 @@ driver 選 `postgres`（postgres.js）而非 `pg`：Drizzle 官方對兩者都�
 
 catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實際 `dependencies` 要到各自的進場階段才加。
 
+#### 0.3 Checklist
+
+- [ ] `packages/db` 加入 `drizzle-orm`、`postgres` 依賴；devDeps 加 `drizzle-kit`（皆用 `catalog:`）
+- [ ] 寫 `src/client.ts`：讀 `DATABASE_URL`，建立 drizzle 連線並具名匯出
+- [ ] 寫 `drizzle.config.ts`：schema 路徑指向 `src/schema/`，dialect 為 postgresql
+- [ ] `packages/db/package.json` 加上 `db:generate` / `db:migrate` script
+- [ ] `apps/server` 加入 `@ims/db` workspace 依賴
+- [ ] `/health` 加上 DB 連線檢查（DB 掛掉時要回非 200，不能假裝健康）
+- [ ] 型別全綠 → 驗證：`pnpm typecheck`
+- [ ] 連線真的通 → 驗證：`pnpm server` 後 `curl localhost:3000/health`，關掉 DB 容器再打一次應該要失敗
+
 ### 0.4 Better Auth 最小可用
 
 - `apps/server` 安裝 `better-auth`，設定 drizzle adapter
@@ -170,6 +260,20 @@ catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實�
 - Email 驗證信先用 console 輸出，不接 provider
 
 **驗收**：能註冊、登入、取得 session。
+
+#### 0.4 Checklist
+
+- [ ] `apps/server` 安裝 `better-auth`（`catalog:`），建立 `src/auth.ts` 並設定 drizzle adapter
+- [ ] 只開 `emailAndPassword`，**不掛任何 plugin**（plugin 是 0.5 spike 與 Stage 1+ 的事）
+- [ ] 用 Better Auth CLI 產生 schema 到 `packages/db/src/schema/auth.ts`，由 `schema/index.ts` 匯出
+- [ ] 產生並套用 migration → 驗證：`psql` 看得到 `user` / `session` / `account` / `verification` 四張表
+- [ ] handler 掛進 Fastify，確認註冊順序沒踩到 CORS / Swagger 的坑
+- [ ] `sendVerificationEmail` 先用 `console.log` 輸出連結（真 adapter 是 Stage 2 的 `MailPort`）
+- [ ] `.env.example` 補 `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`
+- [ ] 註冊可用 → 驗證：`curl` 打 sign-up，DB 的 `user` 表出現該筆資料
+- [ ] 登入可用 → 驗證：`curl` 打 sign-in 拿到 session cookie
+- [ ] session 讀得到 → 驗證：帶著 cookie 打 get-session 回傳該使用者
+- [ ] 型別與 lint 全綠 → 驗證：`pnpm typecheck && pnpm lint`
 
 ### 0.5 R1 Spike（本階段最重要的一項）
 
@@ -181,13 +285,28 @@ catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實�
 
 **驗收**：ARCHITECTURE §8 有明確結論與選定解法，不再是開放問題。
 
+#### 0.5 Checklist
+
+這一段的產出是**結論**，不是程式碼。底下的程式碼寫完就丟。
+
+- [ ] 暫時掛上 `oidcProvider` + `organization` plugin，產生對應 schema 並 migrate
+- [ ] 建一個測試用 org 與 client，讓 authorize flow 跑得起來
+- [ ] 在 `getAdditionalUserInfoClaim` 內印出拿得到的東西，確認簽章實際收到什麼
+- [ ] 解法 1：從 request context 取得當前 session → 記錄成功或失敗原因
+- [ ] 解法 2：authorize request 帶自訂參數指定 org，consent 階段確認 → 僅在 1 失敗時嘗試
+- [ ] 解法 3：以 `client` → `organization` 對應關係反推 → 僅在 1、2 皆失敗時嘗試
+- [ ] 解法 4：放棄 plugin 的 claim hook，自行包一層 token 簽發 → 最後手段
+- [ ] **結論寫回 ARCHITECTURE §8**：選定解法、為什麼、被否決的那幾個各卡在哪
+- [ ] 若結論是解法 3 或 4，回頭檢查 Stage 2–4 的形狀是否要調整，並修正本文件
+- [ ] 移除 spike 的拋棄式程式碼與暫時掛上的 plugin，讓 0.4 的狀態乾淨留存
+
 ### Stage 0 完成的標誌
 
-- 專案內找不到任何 counter 的殘留，全部改用 `@ims/*`
-- `pnpm typecheck` 與 `pnpm lint` 全綠
-- `docker compose up` 起得來，`pnpm server` 連得上 DB
-- 能註冊、登入
-- R1 有結論並已寫回 ARCHITECTURE §8
+- [x] 專案內找不到任何 counter 的殘留，全部改用 `@ims/*`
+- [x] `pnpm typecheck` 與 `pnpm lint` 全綠
+- [ ] `docker compose up` 起得來，`pnpm server` 連得上 DB
+- [ ] 能註冊、登入
+- [ ] R1 有結論並已寫回 ARCHITECTURE §8
 
 ---
 
@@ -195,20 +314,60 @@ catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實�
 
 細節等前一階段完成後再展開——避免在資訊不足時過度規劃。
 
+底下每個階段只列**里程碑**。真正的細項清單在該階段開工時才展開成子清單，格式比照 Stage 0（含 `→ 驗證：` 指令）。現在就把細項全寫死，等於在資訊不足時假裝已經知道答案。
+
 **Stage 1 — OIDC Provider**
 `oidcProvider` plugin、`apps/web` 註冊為 trusted client（`skipConsent`）、走通完整 authorization code flow、`allowDynamicClientRegistration: false`。此時 token 還不帶 tenant。
+
+- [ ] `oidcProvider` plugin 掛上，schema 產生並 migrate
+- [ ] `apps/web` 註冊為 trusted client
+- [ ] 走通完整 authorization code flow
+- [ ] 決定登入 UI 自己刻或用 `better-auth-ui`，並回頭確認 `packages/design` 的 token 值（見 0.1 d）
+- [ ] **完成的標誌**：web 透過 OIDC 登入並取得 `id_token`，內容可解出來檢查
 
 **Stage 2 — Tenancy**
 `organization` plugin、`member` 的 `additionalFields`（`status`、`invitedBy`）、`MailPort` 介面 + Mailpit adapter、邀請與接受流程、`setActiveOrganization` 切換、token 開始帶 `org_id`。需一併決定 ARCHITECTURE §10 的「切換組織完整流程」。
 
+- [ ] `organization` plugin + `member` 的 `additionalFields`
+- [ ] `MailPort` 介面與 Mailpit adapter
+- [ ] 邀請與接受流程
+- [ ] `setActiveOrganization` 切換
+- [ ] 決定「切換組織的完整流程」並寫回 ARCHITECTURE §10
+- [ ] **完成的標誌**：token 帶 `org_id`，切 org 會重發
+
 **Stage 3 — RBAC**
 自有領土第一批表、兩層 role 的分工落地、`@ims/policy` 開始有內容、權限進 token。需一併決定 ARCHITECTURE §10 的「權限演算層級」。
+
+- [ ] 自有領土第一批表：product / permission / role / role_permission / member_role
+- [ ] 兩層 role 的分工落地（`member.role` 不動，自有 RBAC 另一層）
+- [ ] `@ims/policy` 寫入第一批邏輯與測試，移除 `vitest.config.ts` 的 `passWithNoTests`
+- [ ] 決定「權限演算的層級」並寫回 ARCHITECTURE §10
+- [ ] **完成的標誌**：token 帶 `permissions[]`，API 擋得住
 
 **Stage 4 — Entitlement**
 plan / subscription / seat、交集運算、三種拒絕語意的區分。這是整個專案思考含量最高的一段。
 
+- [ ] plan / plan_permission / subscription / seat
+- [ ] RBAC ∩ Entitlement 的交集運算（純函式，在 `@ims/policy`）
+- [ ] 三種拒絕語意可區分：`permission_denied` / `seat_required` / `plan_upgrade_required`
+- [ ] 邊界條件的 unit test：席次用完、subscription 過期、role 撤銷但 seat 還在
+- [ ] **完成的標誌**：「有 role 但沒 seat」被擋，且錯誤能分辨是哪一種
+
 **Stage 5 — 可觀測性**
 audit_log 與 login_attempt、rate limit / 帳號鎖定、user enumeration 的防護。
 
+- [ ] `audit_log`（指向 `member_id`，語意是「某人以某 org 成員身份做了某事」）
+- [ ] `login_attempt`（`user_id` 可為 null，email 不存在也要記）
+- [ ] rate limit / 帳號鎖定
+- [ ] user enumeration 防護：「查無此帳號」與「密碼錯誤」對外同一個回應
+- [ ] **完成的標誌**：能查「誰在何時對什麼做了什麼」
+
 **Stage 6+ — 認證方式擴充**
 Google OAuth → Passkey / WebAuthn / 2FA → 真實 Email provider adapter →（Apple，可選）。
+
+- [ ] Google OAuth
+- [ ] Passkey / WebAuthn / 2FA
+- [ ] 真實 Email provider adapter（換掉 Mailpit，`MailPort` 介面不變）
+- [ ] 收掉 Expo 與 TypeScript 6 的 peer 版本衝突（見 0.1 checklist 末尾）
+- [ ] Apple Sign In（可選，見 ARCHITECTURE §10——學習含量低、成本高）
+- [ ] **完成的標誌**：同一 identity 多種入口
