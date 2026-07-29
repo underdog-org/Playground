@@ -6,51 +6,9 @@ settings:
 
 catalogs:
   default:
-    '@better-auth/drizzle-adapter':
-      specifier: ^1.6.25
-      version: 1.6.25
-    '@tanstack/react-query':
-      specifier: ^5.101.4
-      version: 5.101.4
-    '@types/node':
-      specifier: ^24.13.3
-      version: 24.13.3
-    '@types/react':
-      specifier: ~19.1.17
-      version: 19.1.17
-    '@types/react-dom':
-      specifier: ~19.1.11
-      version: 19.1.11
-    auth:
-      specifier: ^1.6.25
-      version: 1.6.25
-    better-auth:
-      specifier: ^1.6.25
-      version: 1.6.25
-    drizzle-kit:
-      specifier: ^0.31.10
-      version: 0.31.10
-    drizzle-orm:
-      specifier: ^0.45.2
-      version: 0.45.2
-    postgres:
-      specifier: ^3.4.9
-      version: 3.4.9
-    react:
-      specifier: 19.1.0
-      version: 19.1.0
-    react-dom:
-      specifier: 19.1.0
-      version: 19.1.0
     typescript:
       specifier: ~6.0.3
       version: 6.0.3
-    vitest:
-      specifier: ^4.1.10
-      version: 4.1.10
-    zod:
-      specifier: ^4.4.3
-      version: 4.4.3
 
 importers:
 
@@ -214,6 +172,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
+      drizzle-dbml-generator:
+        specifier: ^0.10.0
+        version: 0.10.0(drizzle-orm@0.45.2(kysely@0.29.4)(postgres@3.4.9))
       drizzle-kit:
         specifier: 'catalog:'
         version: 0.31.10
@@ -3310,6 +3271,11 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  drizzle-dbml-generator@0.10.0:
+    resolution: {integrity: sha512-cMZq9E3U3RlmE0uBeXyc6oWJ0royOkC6HiTlc9LDeMe+W87poZTzKoNYUyAxZrs4Q1RQtob+cGKiefV4ZoI8HA==}
+    peerDependencies:
+      drizzle-orm: '>=0.36.0'
 
   drizzle-kit@0.31.10:
     resolution: {integrity: sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw==}
@@ -9363,6 +9329,10 @@ snapshots:
   dotenv@16.4.7: {}
 
   dotenv@17.4.2: {}
+
+  drizzle-dbml-generator@0.10.0(drizzle-orm@0.45.2(kysely@0.29.4)(postgres@3.4.9)):
+    dependencies:
+      drizzle-orm: 0.45.2(kysely@0.29.4)(postgres@3.4.9)
 
   drizzle-kit@0.31.10:
     dependencies:
