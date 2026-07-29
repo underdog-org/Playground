@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
     "typecheck": "tsc --noEmit",
-    "auth:generate": "node --env-file-if-exists=../../.env node_modules/auth/dist/index.mjs generate --config src/auth.ts --output ../../packages/db/src/schema/auth.ts -y"
+    "auth:generate": "node --env-file-if-exists=../../.env node_modules/auth/dist/index.mjs generate --config src/auth.ts --output ../../packages/db/src/schema/auth.ts -y",
+    "api:openapi": "node --env-file-if-exists=../../.env scripts/openapi.ts",
+    "api:bruno": "node scripts/bruno.ts",
+    "api:generate": "pnpm api:openapi && pnpm api:bruno"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "catalog:",

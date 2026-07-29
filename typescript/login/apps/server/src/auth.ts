@@ -1,11 +1,16 @@
 // Better Auth 實例。這是「Better Auth 領土」的唯一設定點（見 ARCHITECTURE §3）。
 //
-// Stage 0.4 的範圍刻意很小：只有 email + password，**不掛任何 plugin**。
+// Stage 0.4 的範圍刻意很小：只有 email + password，**不掛任何會動到 schema 的 plugin**。
 // organization / oidcProvider 是 0.5 spike 與 Stage 1+ 的事，提早掛上會讓
 // 產生出來的 schema 混進還沒想清楚的表，之後要拆更麻煩。
+//
+// openAPI() 是這條規則的例外，因為它不屬於那個風險：它沒有 schema 欄位、
+// 不新增任何表，`pnpm auth:generate` 的產出不會因為它而改變。它做兩件事——
+// 掛上 /api/auth/reference 說明頁，以及提供 auth.api.generateOpenAPISchema()，
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
+import { openAPI } from "better-auth/plugins";
 
 import { db } from "./db.ts";
 
@@ -54,4 +59,6 @@ export const auth = betterAuth({
     "http://localhost:8081", // apps/mobile (expo)
     ...(process.env.LAN_URL ? [process.env.LAN_URL] : []),
   ],
+
+  plugins: [openAPI()],
 });

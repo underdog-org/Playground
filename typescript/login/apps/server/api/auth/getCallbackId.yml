@@ -1,0 +1,151 @@
+info:
+  name: getCallbackId
+  type: http
+  seq: 2
+  tags:
+    - auth
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/auth/callback/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+  auth:
+    type: bearer
+    token: "{{token}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 400 Response
+    description: Bad Request. Usually due to missing parameters, or invalid parameters.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 400
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }
+  - name: 401 Response
+    description: Unauthorized. Due to missing or invalid authentication.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 401
+      statusText: Unauthorized
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }
+  - name: 403 Response
+    description: Forbidden. You do not have permission to access this resource or to perform this action.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 403
+      statusText: Forbidden
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }
+  - name: 404 Response
+    description: Not Found. The requested resource was not found.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }
+  - name: 429 Response
+    description: Too Many Requests. You have exceeded the rate limit. Try again later.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 429
+      statusText: Too Many Requests
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }
+  - name: 500 Response
+    description: Internal Server Error. This is a problem with the server that you cannot fix.
+    request:
+      url: "{{baseUrl}}/api/auth/callback/:id"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+    response:
+      status: 500
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "message": ""
+          }

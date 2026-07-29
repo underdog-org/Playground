@@ -50,3 +50,37 @@ jobs:
             echo "::error::schema.dbml 與 Drizzle schema 不同步。請在本地執行 'pnpm --filter @ims/db db:dbml' 並提交產物。"
             exit 1
           fi
+
+  api:
+    name: openapi.json 與 Bruno collection 是否與路由同步
+    runs-on: ubuntu-latest
+    # 不需要 postgres service：postgres.js 的連線池是 lazy 的，buildApp() 到
+    # ready() 都不會實際連線。這些變數只是要通過 auth.ts / @ims/db 的存在性檢查，
+    # 值是假的沒關係。
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+      BETTER_AUTH_SECRET: ci-placeholder-secret-not-used-for-anything
+      BETTER_AUTH_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: typescript/login/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: typescript/login/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @ims/server api:generate
+
+      - name: 一致性檢查
+        run: |
+          if ! git diff --exit-code -- apps/server/docs apps/server/api; then
+            echo "::error::openapi.json / Bruno collection 與路由不同步。請在本地執行 'pnpm --filter @ims/server api:generate' 並提交產物。"
+            exit 1
+          fi
