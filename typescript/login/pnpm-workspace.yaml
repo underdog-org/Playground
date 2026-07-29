@@ -25,7 +25,11 @@ catalog:
   postgres: ^3.4.9
 
   # 認證（Stage 0.4）
+  # 1.5 起 adapter 被拆成獨立套件，主套件只留核心；drizzle 這條要自己裝。
+  # `auth` 是 better-auth 官方 CLI 的 npm 名稱（不是舊的 @better-auth/cli，那條已停在 1.4）。
   better-auth: ^1.6.25
+  "@better-auth/drizzle-adapter": ^1.6.25
+  auth: ^1.6.25
 
   # 測試 runner。@ims/policy 是純函式，測試不需要 DB 或 HTTP。
   vitest: ^4.1.10

@@ -8,17 +8,13 @@ import {
 } from "fastify-type-provider-zod";
 import fastifySwagger from "@fastify/swagger";
 import ScalarApiReference from "@scalar/fastify-api-reference";
+import { fromNodeHeaders } from "better-auth/node";
 import { z } from "zod";
 
-import { createDb } from "@ims/db";
+import { auth } from "./auth.ts";
+import { sql } from "./db.ts";
 
 const PORT = Number(process.env.PORT ?? 3000);
-
-// 在 Fastify 起來之前先建連線：DATABASE_URL 沒設的話這裡就會擋下來，
-// 而不是等到第一個查詢進來才發現。process.env 由 dev script 的 --env-file 填。
-// db 現在還沒有人用（schema 是空的），0.4 起 Better Auth 的 adapter 會接上去。
-const { db, sql } = createDb();
-void db;
 
 // 初始化App
 const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
@@ -28,8 +24,9 @@ app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
 
 // 註冊 App (非同步）
-// 註冊順序是最容易踩的坑: Swagger -> UI -> CORS
-// Stage 0.4 要把 Better Auth 的 handler 也掛進來，順序同樣要當心。
+// 註冊順序是最容易踩的坑: Swagger -> UI -> CORS -> Better Auth -> 自有路由
+// Better Auth 一定要排在 CORS 之後：它的請求都帶 cookie，preflight 沒被 CORS
+// 接掉的話瀏覽器端會直接失敗，而伺服器這邊什麼錯都看不到。
 await app.register(fastifySwagger, {
   openapi: {
     info: {
@@ -59,7 +56,58 @@ await app.register(cors, {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
 });
 
-// 唯一的路由：讓「server 起得來、DB 連得上、docs 打得開」有東西可驗。
+// ── Better Auth ─────────────────────────────────────────────
+// Better Auth 的 handler 吃的是 Web 標準的 Request、吐 Response，Fastify 用的是
+// Node 的 req/res，所以這一段是兩套介面的轉接層。三個容易踩到的點：
+//
+// 1. body 不能讓 Fastify 先解析。Fastify 預設把 JSON 解成物件，再 stringify 回去
+//    就多繞一圈；更麻煩的是 sign-out 這種沒有 body 的 POST 會被
+//    FST_ERR_CTP_EMPTY_JSON_BODY 直接擋掉。這裡用一個獨立的 register scope 把
+//    content type parser 換成「原封不動收成 Buffer」——parser 是被 encapsulate 的，
+//    只影響這個 scope，/health 那邊照常解析 JSON。
+// 2. set-cookie 要一條一條搬。Headers.forEach 會把多筆 set-cookie 併成一個
+//    逗號分隔的字串，瀏覽器只會認得第一條。getSetCookie() 才拿得到完整陣列，
+//    而 Fastify 的 reply.header("set-cookie", …) 呼叫多次會自己累積成陣列。
+// 3. schema.hide：這是 catch-all 路由，讓它進 OpenAPI 只會變成一條 /api/auth/* 的
+//    假文件。真正的 API 說明看 Better Auth 自己的 /api/auth/reference。
+await app.register(async (scope) => {
+  scope.removeAllContentTypeParsers();
+  scope.addContentTypeParser("*", { parseAs: "buffer" }, (_req, body, done) => {
+    done(null, body);
+  });
+
+  scope.route({
+    method: ["GET", "POST"],
+    url: "/api/auth/*",
+    schema: { hide: true },
+    async handler(request, reply) {
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      const body = request.method === "GET" ? undefined : (request.body as Buffer | undefined);
+
+      const response = await auth.handler(
+        new Request(url, {
+          method: request.method,
+          headers: fromNodeHeaders(request.headers),
+          ...(body?.length ? { body } : {}),
+        }),
+      );
+
+      reply.status(response.status);
+      response.headers.forEach((value, key) => {
+        // content-length 交給 Fastify 依實際送出的內容重算，避免對不上
+        if (key === "set-cookie" || key === "content-length") return;
+        reply.header(key, value);
+      });
+      for (const cookie of response.headers.getSetCookie()) {
+        reply.header("set-cookie", cookie);
+      }
+
+      return reply.send(response.body ? await response.text() : null);
+    },
+  });
+});
+
+// 唯一的自有路由：讓「server 起得來、DB 連得上、docs 打得開」有東西可驗。
 // 分成 status 與 db 兩個欄位：server 活著但 DB 連不上是**不同**的故障，
 // 兩者都回 500 的話，看到的人得自己去猜是哪一種。
 app.get(

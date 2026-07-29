@@ -32,14 +32,14 @@
 
 ## 目前狀態
 
-**進度：Stage 0.3 已完成，下一步 0.4。**
+**進度：Stage 0.4 已完成，下一步 0.5。**
 
 | 階段                     | 狀態      |
 | ------------------------ | --------- |
 | 0.1 Scaffold 重構        | ✅ 已驗收 |
 | 0.2 Docker Postgres      | ✅ 已驗收 |
 | 0.3 `@ims/db`            | ✅ 已驗收 |
-| 0.4 Better Auth 最小可用 | ⬜ 未開始 |
+| 0.4 Better Auth 最小可用 | ✅ 已驗收 |
 | 0.5 R1 Spike             | ⬜ 未開始 |
 | Stage 1–6+               | ⬜ 未開始 |
 
@@ -298,17 +298,21 @@ catalog 只是版本的單一來源，**加進 catalog 不等於安裝**。實�
 
 #### 0.4 Checklist
 
-- [ ] `apps/server` 安裝 `better-auth`（`catalog:`），建立 `src/auth.ts` 並設定 drizzle adapter
-- [ ] 只開 `emailAndPassword`，**不掛任何 plugin**（plugin 是 0.5 spike 與 Stage 1+ 的事）
-- [ ] 用 Better Auth CLI 產生 schema 到 `packages/db/src/schema/auth.ts`，由 `schema/index.ts` 匯出
-- [ ] 產生並套用 migration → 驗證：`psql` 看得到 `user` / `session` / `account` / `verification` 四張表
-- [ ] handler 掛進 Fastify，確認註冊順序沒踩到 CORS / Swagger 的坑
-- [ ] `sendVerificationEmail` 先用 `console.log` 輸出連結（真 adapter 是 Stage 2 的 `MailPort`）
-- [ ] `.env.example` 補 `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`
-- [ ] 註冊可用 → 驗證：`curl` 打 sign-up，DB 的 `user` 表出現該筆資料
-- [ ] 登入可用 → 驗證：`curl` 打 sign-in 拿到 session cookie
-- [ ] session 讀得到 → 驗證：帶著 cookie 打 get-session 回傳該使用者
-- [ ] 型別與 lint 全綠 → 驗證：`pnpm typecheck && pnpm lint`
+- [x] `apps/server` 安裝 `better-auth` 與 `@better-auth/drizzle-adapter`（皆 `catalog:`），建立 `src/auth.ts`
+- [x] 新增 `src/db.ts`：連線池改成 process 級單例（原本 index.ts 自己叫 `createDb()`，多了 auth.ts 之後會開出兩個池）
+- [x] 只開 `emailAndPassword`，**不掛任何 plugin**（plugin 是 0.5 spike 與 Stage 1+ 的事）
+- [x] 用 Better Auth CLI 產生 schema 到 `packages/db/src/schema/auth.ts`，由 `schema/index.ts` 匯出 → 驗證：`pnpm --filter @ims/server auth:generate`
+- [x] 產生並套用 migration → 驗證：`psql \dt` 看得到 `user` / `session` / `account` / `verification` 四張表
+- [x] handler 掛進 Fastify（CORS 之後），在獨立 register scope 內換掉 content type parser、set-cookie 逐條搬
+- [x] `sendVerificationEmail` 先用 `console.log` 輸出連結（真 adapter 是 Stage 2 的 `MailPort`）
+- [x] `.env.example` 補 `BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`；缺了就在啟動時擋下來
+- [x] 註冊可用 → 驗證：`curl -X POST /api/auth/sign-up/email` 回 200，`user` 表出現 `alice@example.com`
+- [x] 登入可用 → 驗證：`curl -X POST /api/auth/sign-in/email` 回 200 並帶 `better-auth.session_token`
+- [x] session 讀得到 → 驗證：帶 cookie 打 `/api/auth/get-session` 回傳該使用者與 session
+- [x] 多條 set-cookie 不會被併掉 → 驗證：`rememberMe:false` 的 sign-in 回兩個獨立的 `set-cookie`（session_token + dont_remember）
+- [x] 型別、lint、格式全綠 → 驗證：`pnpm typecheck && pnpm lint && pnpm format:check`
+
+Better Auth 自己的 CSRF 保護：不帶 `Origin` 的 POST `/api/auth/sign-out` 回 `403 MISSING_OR_NULL_ORIGIN`，帶了 `trustedOrigins` 內的來源才過。sign-up / sign-in 不受此限。這是 library 行為不是接線錯誤，記在 NOTE.md。
 
 ### 0.5 R1 Spike（本階段最重要的一項）
 

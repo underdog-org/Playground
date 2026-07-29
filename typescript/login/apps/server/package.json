@@ -5,20 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "auth:generate": "node --env-file-if-exists=../../.env node_modules/auth/dist/index.mjs generate --config src/auth.ts --output ../../packages/db/src/schema/auth.ts -y"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "catalog:",
     "@fastify/cors": "^11.3.0",
     "@fastify/swagger": "^9.8.1",
     "@ims/contract": "workspace:*",
     "@ims/db": "workspace:*",
     "@scalar/fastify-api-reference": "^1.63.0",
+    "better-auth": "catalog:",
     "fastify": "^5.10.0",
     "fastify-type-provider-zod": "^7.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "auth": "catalog:",
     "tsx": "^4.23.1",
     "typescript": "catalog:"
   }
