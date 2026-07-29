@@ -18,6 +18,8 @@ pg_isready 不帶參數會用執行者身分查同名資料庫（root/root），
 
 開發用信箱沒有保存價值，MP_MAX_MESSAGES: 500 讓它自己滾動就夠，省一個 volume。
 
+---
+
 ## Drizzle & DB
 
 1. 在 Fastify 起來之前先建連線：DATABASE_URL 沒設的話這裡就會擋下來，而不是等到第一個查詢進來才發現。process.env 由 dev script 的 --env-file 填。
@@ -69,6 +71,57 @@ for (const cookie of response.headers.getSetCookie()) reply.header("set-cookie",
 
 Better Auth 缺 `BETTER_AUTH_SECRET` 時自己生一組隨機值、印個警告就過了。現象是「每次重啟 server 所有人的 session 都失效」。所以 auth.ts 選擇缺了就直接丟錯。
 
-5. 它自己有 CSRF 保護
+5. `oidc-provider` 已經被廢棄了
+
+CLI 產生 schema 時會噴：`The "oidc-provider" plugin is deprecated ... Migrate to @better-auth/oauth-provider`。這不只是改名，claim hook 的形狀完全不同，而且新的那組正好解掉了 R1（見 ARCHITECTURE §8，兩者的對照表在下面第 8 點）。
+
+教訓：**跑 CLI 時的警告要讀**。這條訊息改變了整個 spike 的方向，如果只看文件沒跑指令就會照著已廢棄的 API 做下去。
+
+6. oauthProvider 的三個「不看就會卡住」的預設
+
+- 硬依賴 `jwt` plugin，沒掛的話啟動丟 `BetterAuthError: jwt_config`（訊息只有這樣，沒有說要裝什麼）
+- access token 預設是 **opaque**，不是 JWT。想看內容要打 `/oauth2/introspect`
+- `storeClientSecret` 預設 `"hashed"`（SHA-256 → base64url、不補 padding）。手動塞明文 secret 進 `oauth_client` 表，token endpoint 會回 `invalid_client` / `"invalid client_secret"`，但它不會告訴你是雜湊格式的問題
+
+7. 它自己有 CSRF 保護
 
 不帶 `Origin` 的 `POST /api/auth/sign-out` 回 `403 MISSING_OR_NULL_ORIGIN`；帶了 `trustedOrigins` 內的來源才過。sign-up / sign-in 不受此限。用 curl 測的時候看到 403 先確認是不是少了 `-H 'origin: ...'`。
+
+8. oidcProvider → oauth-provider：
+
+| Feature            | 舊 oidcProvider                                           | 新 oauthProvider                                                                   |
+| :----------------- | :-------------------------------------------------------- | :--------------------------------------------------------------------------------- |
+| **Claim Hook**     | `getAdditionalUserInfoClaim(user, scopes, client)`        | `customAccessTokenClaims({ user, referenceId, scopes })`                           |
+| **Session Access** | ❌ 無法取得 `session` 或 `ctx` / `request` (僅限三個參數) | ✅ 可取得完整上下文：<br>`postLogin.consentReferenceId({ user, session, scopes })` |
+
+9. `consentReferenceId` 官方定義是什麼
+
+它在 oauthProvider({ postLogin: { … } }) 底下，型別定義的原文是：
+
+> A value to tie to the consent reference_id. Note that YOU **must fail** in this function if the requested scope **doesn't have a reference** id and it should.
+
+```ts
+consentReferenceId: (context: {
+  user: User & Record<string, unknown>;
+  session: Session & Record<string, unknown>; // ← R1 缺的就是這個
+  scopes: Scopes;
+}) => Awaitable<string | undefined>;
+```
+
+語意上它回答的是：「這次授權是在哪個脈絡下發生的」。標準 OAuth 的一次同意是「使用者 U 授權 client C 這些 scope」；referenceId 多加一個維度，變成「使用者 U 以 R 的身分 授權 client C」。對我們來說 R 就是 organization.id。
+
+它不是一個「回呼」而已，是有資料落地的——schema 產出來可以看到 reference_id 是四張表的一級欄位：
+
+- oauth_consent.reference_id
+- oauth_access_token.reference_id
+- oauth_refresh_token.reference_id
+- oauth_client.reference_id
+
+
+---
+## Schema
+
+- `account.scope`: 記錄 OAuth 第三方登入（如 Google、GitHub）時授權的 scope 字串，例如 "openid profile email"。密碼登入的 account 此欄位為 null。
+- `verfication` 用於 email 驗證與密碼重設使用的通用驗證 token
+  - `verification.identifier` 驗證目標 = email 位置
+  - `verification.value` 一次性驗證 token/code

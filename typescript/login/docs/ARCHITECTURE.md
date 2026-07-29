@@ -18,20 +18,20 @@
 
 ## 2. 核心決策紀錄
 
-| #   | 決策               | 選擇                                    | 理由                                                                             | 代價                                             |
-| --- | ------------------ | --------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ |
-| D1  | SSO 邊界           | 真・OIDC Provider                       | 唯一能支撐「多產品單一登入」的做法；也最能練到 token 思維                        | 需理解 OIDC 流程、consent、client 註冊           |
-| D2  | Tenancy 模型       | 全域 User + Membership                  | 一個 email 一個全域帳號，透過 membership 加入多個 org。這才是「單一登入」        | user 是共享資源，資料隔離須靠應用層把關          |
-| D3  | Membership 形狀    | A 的形狀、C 的心態                      | `member` 有自己的 `id`、`status`、`joined_at`，但**現在不建** per-org profile 表 | 無。未來要加 `member_profile.member_id` 是純加法 |
-| D4  | Token 與 tenant    | Token 綁 tenant                         | `id_token` / `access_token` 內含 `org_id` 與已解析的權限。API 層簡單、審計清楚   | 切換組織需要 re-authorize 流程                   |
-| D5  | Better Auth 的邊界 | 流程交給它，資料模型自己做              | 見 §3                                                                            | 需摸清它的 schema 才能乾淨接合                   |
-| D6  | Tenancy 實作       | 用 `organization` plugin 當骨架         | 借它的 organization/member/invitation 與 `activeOrganizationId` 機制             | 受限於它的欄位；靠 `additionalFields` 擴充       |
-| D7  | Entitlement 模型   | Seat 指派制                             | org 買 N 張席次，admin 指派給特定成員。最貼近真實企業情境                        | 多一張 `seat` 表與指派 UI                        |
-| D8  | Role 作用域        | 綁單一 product                          | 與 seat/plan 的 per-product 粒度一致，交集運算單純                               | 「所有產品的 viewer」要指派多次                  |
-| D9  | Email 寄送         | 先定義 `MailPort` 介面                  | verification / reset / invitation / 2FA 四個流程都要用，介面要早定               | 初期只有 console adapter，看不到真實信件         |
-| D10 | 認證方式擴充順序   | 排到最後                                | OAuth / Passkey 是「同一 identity 的不同入口」，不動地基                         | 較晚才有 Google 登入的成就感                     |
-| D11 | 權限演算的位置     | 獨立 `packages/policy`                  | 純函式、不碰 DB 與 Fastify，可用純 unit test 把交集邏輯與三種拒絕語意測到透      | 多一層間接；資料要先讀好再傳進去                 |
-| D12 | Package 邊界       | `db` / `policy` / `contract` / `design` | 見 §10                                                                           | 需把 counter 的領域程式碼整批移除                |
+| #   | 決策               | 選擇                                    | 理由                                                                                          | 代價                                             |
+| --- | ------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| D1  | SSO 邊界           | 真・OIDC Provider                       | 唯一能支撐「多產品單一登入」的做法；也最能練到 token 思維                                     | 需理解 OIDC 流程、consent、client 註冊           |
+| D2  | Tenancy 模型       | 全域 User + Membership                  | 一個 email 一個全域帳號，透過 membership 加入多個 org。這才是「單一登入」                     | user 是共享資源，資料隔離須靠應用層把關          |
+| D3  | Membership 形狀    | A 的形狀、C 的心態                      | `member` 有自己的 `id`、`status`、`joined_at`，但**現在不建** per-org profile 表              | 無。未來要加 `member_profile.member_id` 是純加法 |
+| D4  | Token 與 tenant    | Token 綁 tenant                         | **`access_token`** 內含 `org_id` 與已解析的權限（id_token 不行，見 §8）。API 層簡單、審計清楚 | 切換組織需要 re-authorize 流程                   |
+| D5  | Better Auth 的邊界 | 流程交給它，資料模型自己做              | 見 §3                                                                                         | 需摸清它的 schema 才能乾淨接合                   |
+| D6  | Tenancy 實作       | 用 `organization` plugin 當骨架         | 借它的 organization/member/invitation 與 `activeOrganizationId` 機制                          | 受限於它的欄位；靠 `additionalFields` 擴充       |
+| D7  | Entitlement 模型   | Seat 指派制                             | org 買 N 張席次，admin 指派給特定成員。最貼近真實企業情境                                     | 多一張 `seat` 表與指派 UI                        |
+| D8  | Role 作用域        | 綁單一 product                          | 與 seat/plan 的 per-product 粒度一致，交集運算單純                                            | 「所有產品的 viewer」要指派多次                  |
+| D9  | Email 寄送         | 先定義 `MailPort` 介面                  | verification / reset / invitation / 2FA 四個流程都要用，介面要早定                            | 初期只有 console adapter，看不到真實信件         |
+| D10 | 認證方式擴充順序   | 排到最後                                | OAuth / Passkey 是「同一 identity 的不同入口」，不動地基                                      | 較晚才有 Google 登入的成就感                     |
+| D11 | 權限演算的位置     | 獨立 `packages/policy`                  | 純函式、不碰 DB 與 Fastify，可用純 unit test 把交集邏輯與三種拒絕語意測到透                   | 多一層間接；資料要先讀好再傳進去                 |
+| D12 | Package 邊界       | `db` / `policy` / `contract` / `design` | 見 §10                                                                                        | 需把 counter 的領域程式碼整批移除                |
 
 ### D2 補充：為什麼不是 Tenant-scoped User
 
@@ -58,8 +58,9 @@ C（全域 Identity + 租戶內 Profile）其實是 A 的超集——`member` �
 │                                                                    │
 │  core        : user, session, account, verification                │
 │  organization: organization, member, invitation                    │
-│  oidcProvider: oauthApplication, oauthConsent, oauthAccessToken,   │
-│                jwks                                                │
+│  oauthProvider: oauthClient, oauthConsent, oauthAccessToken,       │
+│                 oauthRefreshToken                                  │
+│  jwt         : jwks（oauthProvider 硬性依賴，見 §8 結論四）        │
 │  (Stage 6+)  : twoFactor, passkey                                  │
 └────────────────────────────────────────────────────────────────────┘
                               │
@@ -172,50 +173,129 @@ effective(member, product)
 
 ## 7. 關鍵接縫
 
-Better Auth 的世界與自有世界在**一個函式**交會：
+Better Auth 的世界與自有世界在**兩個函式**交會。分成兩個點不是設計上的妥協，而是因為兩件事發生在不同時刻：**「是哪個 tenant」在使用者還在線上時就決定了；「這個 tenant 裡他能做什麼」則要等到簽 token 時才算**。
 
 ```
-authorize request
-  → session.activeOrganizationId              (organization plugin)
-  → member = f(user.id, activeOrganizationId)
-  → getAdditionalUserInfoClaim(user, scopes, client)     ← 邊界在這裡
-       ├─ 取得 activeOrganizationId
-       ├─ 算 effective(member, client 對應的 product)
+/oauth2/authorize（前台，使用者的瀏覽器帶著 cookie 進來）
+  → session.activeOrganizationId                        (organization plugin)
+  → consentReferenceId({ user, session, scopes })       ← 邊界 ①：決定 tenant
+       └─ return session.activeOrganizationId
+  → 存進 oauth_consent.reference_id / oauth_access_token.reference_id
+
+/oauth2/token（後台，client 的伺服器拿 code 來換，沒有 cookie）
+  → customAccessTokenClaims({ user, referenceId, scopes })  ← 邊界 ②：算權限
+       ├─ member = f(user.id, referenceId)
+       ├─ 算 effective(member, client 對應的 product)   ← §6 的交集
        └─ return { org_id, org_role, permissions[], entitlements[] }
-  → id_token / access_token                   (oidcProvider plugin)
+  → access_token                                        (oauth-provider plugin)
 ```
 
 Better Auth 把 authorization code、consent、token 簽發全包了，但「**token 裡放什麼**」完全交給我們。分層邊界剛好落在有思考含量的地方。
 
 ```ts
-oidcProvider({
+oauthProvider({
   loginPage: "/sign-in",
   consentPage: "/consent",
-  getAdditionalUserInfoClaim: async (user, scopes, client) => {
-    // 自有世界的入口
+  scopes: ["openid", "profile", "email", "read:organization"],
+  postLogin: {
+    page: "/select-organization",
+    consentReferenceId: async ({ session, scopes }) => {
+      // 邊界 ①：把「當前是哪個 org」釘在這次授權上
+    },
   },
-  trustedClients: [/* 內部產品可 skipConsent */],
-  allowDynamicClientRegistration: false, // 初期關閉
+  customAccessTokenClaims: async ({ user, referenceId, scopes }) => {
+    // 邊界 ②：自有世界的入口
+  },
 });
 ```
 
+`id_token` 拿不到 `referenceId`（見 §8 結論三），所以 tenant 與權限只走 access_token。
+
+為什麼 tenant 不能等到邊界 ② 再算：那時候是 client 後端的 back-channel 呼叫，請求裡沒有使用者的 cookie，`activeOrganizationId` 已經無從得知。這正是 R1 原本的風險，`referenceId` 就是官方用來跨過這段時間差的載體。
+
 ---
 
-## 8. 已知風險：R1
+## 8. R1：已驗證，已解除
 
-> `getAdditionalUserInfoClaim` 的簽章是 `(user, scopes, client)`，**沒有 session**。
+> **原本的風險**：`getAdditionalUserInfoClaim` 的簽章是 `(user, scopes, client)`，**沒有 session**。
 > 但 D4（token 綁 tenant）要求簽發時必須知道 `activeOrganizationId`。
 
-整個設計掛在這個接縫上。若無法取得，Stage 2–4 的形狀都要改。
+**結論：D4 成立，但接縫不在原本以為的地方。** 已於 Stage 0.5 用可跑的 authorization code flow 實測（`better-auth@1.6.25`）。
 
-因此 **Stage 0 必須先做 spike 驗證**，在畫任何自有資料表之前。可能的解法（依偏好排序）：
+### 結論一：原本列的四個解法全部作廢，因為 plugin 本身作廢了
 
-1. 從 request context 取得當前 session
-2. 在 authorize request 帶自訂參數指定 org，於 consent 階段確認
-3. 以 `client` → `organization` 的對應關係反推
-4. 放棄 plugin 的 claim hook，自行包一層 token 簽發
+產生 schema 時 Better Auth CLI 直接噴出：
 
-驗證結論寫回本節。
+```
+[Deprecation] The "oidc-provider" plugin is deprecated and will be removed in
+the next major version. Migrate to @better-auth/oauth-provider
+```
+
+**採用 `@better-auth/oauth-provider`**（獨立套件，非 `better-auth/plugins` 之一）。
+
+順帶確認舊 plugin 上原列解法 1（從 request context 取 session）**在原理上就不可行**，不只是 API 沒開放：那個 hook 跑在 `/oauth2/token` 裡，而 token endpoint 是 client 的**後端**帶著 authorization code 來換 token 的 back-channel 呼叫——那個 HTTP 請求裡根本沒有使用者的 cookie。就算 hook 拿得到 ctx 也讀不到 session。
+
+### 結論二：選定解法——plugin 內建的 `referenceId` 機制
+
+新 plugin 把「這次授權發生在哪個脈絡下」做成了一級概念：
+
+```ts
+oauthProvider({
+  postLogin: {
+    // 跑在 authorize / consent 階段 —— 使用者 session 還在，拿得到 activeOrganizationId
+    consentReferenceId: async ({ user, session, scopes }) => {
+      if (!scopes.includes("read:organization")) return undefined;
+      return session.activeOrganizationId; // ← R1 缺的就是這一步
+    },
+  },
+  // 簽發時 referenceId 被傳進來
+  customAccessTokenClaims: async ({ user, referenceId, scopes }) => ({
+    "https://ims.local/org": referenceId,
+  }),
+});
+```
+
+資料流是有落地的，不是純記憶體傳遞——`reference_id` 是四張表的一級欄位：
+`oauth_consent` / `oauth_access_token` / `oauth_refresh_token` / `oauth_client`。
+
+這**比原本列的解法 2 好**：解法 2 要自己在 authorize request 上塞自訂參數再於 consent 階段驗證，等於自己重造一套 state 傳遞；`referenceId` 是官方為同一個問題設計的路徑，且 refresh token 也帶得動（換發時 tenant 不會掉）。
+
+實測結果（spike 輸出）：
+
+```
+org.id                                = LSzsd9vPyQCKXcOpkLFHWq5roOJLW0KH
+session.activeOrganizationId          = LSzsd9vPyQCKXcOpkLFHWq5roOJLW0KH
+oauth_access_token.reference_id       = LSzsd9vPyQCKXcOpkLFHWq5roOJLW0KH
+access_token["https://ims.local/org"] = LSzsd9vPyQCKXcOpkLFHWq5roOJLW0KH   ✅
+```
+
+### 結論三：`org_id` 只能放 access_token，不能放 id_token
+
+這是實測撞出來的，型別上就是這樣：
+
+| hook                                                                         | 拿得到 `referenceId`？ |
+| ---------------------------------------------------------------------------- | ---------------------- |
+| `customAccessTokenClaims({ user, referenceId, scopes, resource, metadata })` | ✅                     |
+| `customIdTokenClaims({ user, scopes, metadata })`                            | ❌                     |
+
+spike 的 id_token 裡那個 claim 實際印出來是 `null`。
+
+**這件事修正了 §7 與 D4 的描述**（原本寫「`id_token` / `access_token` 內含 `org_id`」）。而且新的分法在語意上更對：OIDC 裡 id_token 回答「**你是誰**」，access_token 回答「**你能做什麼**」。`org_id` / `permissions[]` / `entitlements[]` 本來就屬於後者。前端要顯示「目前在哪個 org」的話，走 `/userinfo` 或自有 API，不要指望 id_token。
+
+### 結論四：三個連帶事實（都會影響 Stage 1）
+
+1. **`oauthProvider` 硬依賴 `jwt` plugin**。沒掛的話啟動時丟 `BetterAuthError: jwt_config`。會多一張 `jwks` 表。
+2. **access_token 預設是 opaque token，不是 JWT**。要看內容得打 `/oauth2/introspect`。Stage 1 要決定維持 opaque（每次驗證都回 IdP，撤銷即時但多一次往返）還是改成 JWT（可離線驗證，但撤銷有延遲）——這其實就是 §10「權限演算的層級」那題的一部分。
+3. **`storeClientSecret` 預設是 `"hashed"`**（SHA-256 → base64url、不補 padding）。手動塞 client 進 DB 時存明文會換不到 token。
+
+### 對後續階段的影響
+
+Stage 2–4 的**資料模型形狀不用改**——`member` / `role` / `seat` 那幾張表照 §5 走。要改的只有兩件事，都在 §7 的接縫上：
+
+- Stage 1 的 plugin 換成 `@better-auth/oauth-provider` + `jwt`
+- claim 注入點從「一個 `getAdditionalUserInfoClaim`」變成「`consentReferenceId` 決定 tenant + `customAccessTokenClaims` 算權限」兩個點
+
+**驗證方式**：見 ROADMAP 0.5，spike 程式在 `apps/server/spike/`（拋棄式，驗收後刪除）。
 
 ---
 

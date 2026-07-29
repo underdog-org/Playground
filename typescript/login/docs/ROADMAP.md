@@ -32,7 +32,7 @@
 
 ## 目前狀態
 
-**進度：Stage 0.4 已完成，下一步 0.5。**
+**進度：Stage 0 全部完成，下一步 Stage 1（OIDC Provider）。**
 
 | 階段                     | 狀態      |
 | ------------------------ | --------- |
@@ -40,7 +40,7 @@
 | 0.2 Docker Postgres      | ✅ 已驗收 |
 | 0.3 `@ims/db`            | ✅ 已驗收 |
 | 0.4 Better Auth 最小可用 | ✅ 已驗收 |
-| 0.5 R1 Spike             | ⬜ 未開始 |
+| 0.5 R1 Spike             | ✅ 已驗收 |
 | Stage 1–6+               | ⬜ 未開始 |
 
 Scaffold 原由 counter 專案沿用而來，經 0.1–0.3 之後的現況：
@@ -52,21 +52,27 @@ Scaffold 原由 counter 專案沿用而來，經 0.1–0.3 之後的現況：
 - Fastify + `fastify-type-provider-zod` + Swagger + Scalar 可運作，目前只有 `/health`（含 DB 檢查）
 - oxlint / oxfmt / mise / vitest / drizzle-kit
 
-**尚缺**：Better Auth 與任何一張資料表——也就是 0.4 之後的內容。
+0.4 之後再加上：
+
+- `apps/server/src/auth.ts` — Better Auth（email + password，未掛任何 plugin），handler 掛在 `/api/auth/*`
+- `apps/server/src/db.ts` — 連線池的 process 級單例
+- `packages/db/src/schema/auth.ts` — CLI 產生的 `user` / `session` / `account` / `verification`，已 migrate
+
+**尚缺**：OIDC provider 與自有領土的任何一張表——也就是 Stage 1 之後的內容。
 
 ---
 
 ## 階段總覽
 
-| 階段                   | 內容                                                                  | 完成的標誌                                      |
-| ---------------------- | --------------------------------------------------------------------- | ----------------------------------------------- |
-| **0. 骨架 + 風險驗證** | Docker Postgres / Drizzle / Better Auth email+password / **R1 spike** | 能註冊登入，且 R1 有明確結論                    |
-| **1. OIDC Provider**   | `oidcProvider` plugin、一個 trusted client、authorization code flow   | web 透過 OIDC 登入並取得 id_token               |
-| **2. Tenancy**         | `organization` plugin、`member` additionalFields、邀請流程、切換 org  | token 帶 `org_id`，切 org 會重發                |
-| **3. RBAC**            | product / permission / role / role_permission / member_role           | token 帶 `permissions[]`，API 能擋              |
-| **4. Entitlement**     | plan / plan_permission / subscription / seat + 交集運算               | 「有 role 但沒 seat」被擋，且三種拒絕語意可區分 |
-| **5. 可觀測性**        | audit_log、login_attempt、rate limit / lockout                        | 能查「誰在何時對什麼做了什麼」                  |
-| **6+. 認證方式擴充**   | Google OAuth → Passkey / 2FA → 真 Email adapter →（Apple，可選）      | 同一 identity 多種入口                          |
+| 階段                   | 內容                                                                             | 完成的標誌                                      |
+| ---------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **0. 骨架 + 風險驗證** | Docker Postgres / Drizzle / Better Auth email+password / **R1 spike**            | 能註冊登入，且 R1 有明確結論                    |
+| **1. OIDC Provider**   | `oauthProvider` + `jwt` plugin、一個 skipConsent client、authorization code flow | web 走通 OIDC 登入並取得 token                  |
+| **2. Tenancy**         | `organization` plugin、`member` additionalFields、邀請流程、切換 org             | token 帶 `org_id`，切 org 會重發                |
+| **3. RBAC**            | product / permission / role / role_permission / member_role                      | token 帶 `permissions[]`，API 能擋              |
+| **4. Entitlement**     | plan / plan_permission / subscription / seat + 交集運算                          | 「有 role 但沒 seat」被擋，且三種拒絕語意可區分 |
+| **5. 可觀測性**        | audit_log、login_attempt、rate limit / lockout                                   | 能查「誰在何時對什麼做了什麼」                  |
+| **6+. 認證方式擴充**   | Google OAuth → Passkey / 2FA → 真 Email adapter →（Apple，可選）                 | 同一 identity 多種入口                          |
 
 ### 兩個排序上的刻意選擇
 
@@ -318,34 +324,46 @@ Better Auth 自己的 CSRF 保護：不帶 `Origin` 的 POST `/api/auth/sign-out
 
 > 驗證 `getAdditionalUserInfoClaim` 能否取得 `session.activeOrganizationId`。
 
-做法：暫時掛上 `oidcProvider` + `organization` plugin，在 claim hook 內嘗試取得當前 session，把結果印出來。這是**拋棄式程式碼**，目的只是取得結論。
-
-依 ARCHITECTURE §8 列的四個解法依序嘗試，**結論寫回 ARCHITECTURE §8**。
+做法：暫時掛上 provider + `organization` plugin，在 claim hook 內把拿得到的東西印出來。這是**拋棄式程式碼**，目的只是取得結論。
 
 **驗收**：ARCHITECTURE §8 有明確結論與選定解法，不再是開放問題。
 
+#### 過程中範圍被改變的一件事
+
+產生 schema 時 Better Auth CLI 直接噴出 `oidc-provider` 的 deprecation 警告，要求遷移到 `@better-auth/oauth-provider`。原本列的四個解法都是針對舊 plugin 的 `getAdditionalUserInfoClaim` 想繞路，**在已被廢棄的 API 上找繞路方法沒有意義**，所以 spike 改成驗證新 plugin 的 `postLogin.consentReferenceId` + `customAccessTokenClaims`。
+
+底下的清單同步改成實際做的事。原本的解法 1–4 標成 `- [~]` 並註明作廢理由，不刪除。
+
 #### 0.5 Checklist
 
-這一段的產出是**結論**，不是程式碼。底下的程式碼寫完就丟。
+> 這一段的產出是**結論**，不是程式碼。底下的程式碼寫完就丟。
 
-- [ ] 暫時掛上 `oidcProvider` + `organization` plugin，產生對應 schema 並 migrate
-- [ ] 建一個測試用 org 與 client，讓 authorize flow 跑得起來
-- [ ] 在 `getAdditionalUserInfoClaim` 內印出拿得到的東西，確認簽章實際收到什麼
-- [ ] 解法 1：從 request context 取得當前 session → 記錄成功或失敗原因
-- [ ] 解法 2：authorize request 帶自訂參數指定 org，consent 階段確認 → 僅在 1 失敗時嘗試
-- [ ] 解法 3：以 `client` → `organization` 對應關係反推 → 僅在 1、2 皆失敗時嘗試
-- [ ] 解法 4：放棄 plugin 的 claim hook，自行包一層 token 簽發 → 最後手段
-- [ ] **結論寫回 ARCHITECTURE §8**：選定解法、為什麼、被否決的那幾個各卡在哪
-- [ ] 若結論是解法 3 或 4，回頭檢查 Stage 2–4 的形狀是否要調整，並修正本文件
-- [ ] 移除 spike 的拋棄式程式碼與暫時掛上的 plugin，讓 0.4 的狀態乾淨留存
+- [x] 讀 `better-auth@1.6.25` 的 dist 型別，確認 `getAdditionalUserInfoClaim` 簽章仍是 `(user, scopes, client)`，沒有 session
+- [x] 用 CLI 產生 schema 時發現 `oidc-provider` 已 deprecated → 改用 `@better-auth/oauth-provider`
+- [x] 建立獨立資料庫 `ims_spike` + `drizzle-kit push`，不污染主庫的 migration 歷史
+- [x] 掛上 `organization` + `jwt` + `oauthProvider`，產生 schema 並 push → 驗證：`oauth_client` / `oauth_consent` / `oauth_access_token` / `oauth_refresh_token` / `jwks` 都在
+- [x] 建測試用 org 與 client（`skipConsent: true`），跑通完整 authorization code flow（PKCE S256）
+- [x] 在 `consentReferenceId` / `customAccessTokenClaims` / `customIdTokenClaims` 內印出實際收到的參數
+- [x] **核心驗證**：`consentReferenceId({ user, session, scopes })` 拿得到 `session.activeOrganizationId` → 印出的值與建立的 org.id 相符
+- [x] **端到端驗證**：`access_token` 的自訂 claim 等於 `org.id` → 驗證：`pnpm exec tsx spike/run.ts` 最後一行 `✅ 有`
+- [x] 對照組：`customIdTokenClaims` 沒有 `referenceId` 參數，id_token 的同名 claim 是 `null`
+- [~] 解法 1：從 request context 取得當前 session ——（作廢：hook 跑在 `/oauth2/token`，那是 client 後端的 back-channel 呼叫，請求裡沒有使用者 cookie，拿到 ctx 也讀不到 session）
+- [~] 解法 2：authorize request 帶自訂參數指定 org ——（作廢：新 plugin 的 `referenceId` 就是這個想法的官方版本，且 refresh token 也帶得動，自己造沒有好處）
+- [~] 解法 3：以 `client` → `organization` 對應關係反推 ——（作廢：解法 2 已成立。順帶一提 `oauth_client.reference_id` 這個欄位存在，真要做「一個 client 綁死一個 org」也有現成位置）
+- [~] 解法 4：自行包一層 token 簽發 ——（作廢：最後手段，用不到）
+- [x] **結論寫回 ARCHITECTURE §8**：選定解法、為什麼、被否決的各卡在哪，以及三個連帶事實
+- [x] 回頭修正受影響的敘述：§7 的接縫圖（一個函式 → 兩個函式）、D4（id_token → access_token）、§3 的領土表清單
+- [x] 確認 Stage 2–4 的資料模型形狀**不用改**（要改的只有 Stage 1 的 plugin 選擇與 claim 注入點）
+- [x] 移除 spike 的拋棄式程式碼，讓 0.4 的狀態乾淨留存 → 驗證：`apps/server/spike/` 已刪、`drop database ims_spike`、`@better-auth/oauth-provider` / `drizzle-orm` / `postgres` / `drizzle-kit` 已從 `apps/server` 移除
+- [x] 清理後 0.4 的功能未受影響 → 驗證：`/health` 回 200、sign-in 回 200、`pnpm typecheck && pnpm lint && pnpm format:check` 全綠
 
 ### Stage 0 完成的標誌
 
 - [x] 專案內找不到任何 counter 的殘留，全部改用 `@ims/*`
 - [x] `pnpm typecheck` 與 `pnpm lint` 全綠
-- [ ] `docker compose up` 起得來，`pnpm server` 連得上 DB
-- [ ] 能註冊、登入
-- [ ] R1 有結論並已寫回 ARCHITECTURE §8
+- [x] `docker compose up` 起得來，`pnpm server` 連得上 DB
+- [x] 能註冊、登入
+- [x] R1 有結論並已寫回 ARCHITECTURE §8
 
 ---
 
@@ -356,9 +374,13 @@ Better Auth 自己的 CSRF 保護：不帶 `Origin` 的 POST `/api/auth/sign-out
 底下每個階段只列**里程碑**。真正的細項清單在該階段開工時才展開成子清單，格式比照 Stage 0（含 `→ 驗證：` 指令）。現在就把細項全寫死，等於在資訊不足時假裝已經知道答案。
 
 **Stage 1 — OIDC Provider**
-`oidcProvider` plugin、`apps/web` 註冊為 trusted client（`skipConsent`）、走通完整 authorization code flow、`allowDynamicClientRegistration: false`。此時 token 還不帶 tenant。
+`@better-auth/oauth-provider` + `jwt` plugin（前者硬性依賴後者）、`apps/web` 註冊為 `skipConsent` client、走通完整 authorization code flow、關閉 dynamic client registration。此時 token 還不帶 tenant。
 
-- [ ] `oidcProvider` plugin 掛上，schema 產生並 migrate
+plugin 選擇與這裡的三個附帶決定都來自 0.5 的 spike 結論，見 ARCHITECTURE §8。
+
+- [ ] `oauthProvider` + `jwt` plugin 掛上，schema 產生並 migrate（會多出 `oauth_client` / `oauth_consent` / `oauth_access_token` / `oauth_refresh_token` / `jwks`）
+- [ ] 決定 access token 要維持 opaque 還是改成 JWT（見 ARCHITECTURE §8 結論四，與 §10「權限演算的層級」相關）
+- [ ] client 註冊流程要處理 `storeClientSecret` 預設 `"hashed"`——手動塞明文 secret 進 DB 會換不到 token
 - [ ] `apps/web` 註冊為 trusted client
 - [ ] 走通完整 authorization code flow
 - [ ] 決定登入 UI 自己刻或用 `better-auth-ui`，並回頭確認 `packages/design` 的 token 值（見 0.1 d）
