@@ -1,0 +1,20 @@
+# playground 是多專案 repo。這支只是路由表——實質 pipeline 定義在各專案自己的目錄下。
+#
+# workflow.rules 是關鍵：GitLab 只要看到根目錄有 .gitlab-ci.yml，每次 push 都會嘗試
+# 建 pipeline；若所有 job 都被 rules 排除，會噴 "pipeline cannot be created because
+# no jobs"。所以在最外層先擋掉——其他專案（mac/、raycast/、scripts/…）改動時
+# 連 pipeline 都不會建立。
+#
+# 新增專案時：在 workflow.rules 的 changes 補上路徑，並在 include 補一行。
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: &project_paths
+        - "typescript/login/**/*"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *project_paths
+    - when: never
+
+include:
+  - local: typescript/login/.gitlab-ci.yml

@@ -1,0 +1,23 @@
+# 由 playground 根目錄的 .gitlab-ci.yml 用 include:local 引入。
+# 觸發條件（是否建立 pipeline）由根目錄的 workflow.rules 決定，這裡只定義 job 本身。
+
+.login:
+  image: node:24
+  before_script:
+    - cd typescript/login
+    - corepack enable # 依 package.json 的 packageManager 取得 pnpm 10.34.5
+    - pnpm install --frozen-lockfile
+  cache:
+    key:
+      files: [typescript/login/pnpm-lock.yaml]
+    paths: [typescript/login/.pnpm-store]
+
+login:dbml:
+  extends: .login
+  script:
+    - pnpm --filter @ims/db db:dbml
+    - |
+      if ! git diff --exit-code -- packages/db/docs/schema.dbml; then
+        echo "schema.dbml 與 Drizzle schema 不同步。請在本地執行 'pnpm --filter @ims/db db:dbml' 並提交產物。"
+        exit 1
+      fi

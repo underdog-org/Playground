@@ -1,0 +1,52 @@
+# playground 是多專案 repo，GitHub Actions 沒有 include 機制，workflow 檔一定要
+# 實體放在 .github/workflows/。所以這支只做三件事：觸發條件、路徑限縮、切工作目錄——
+# 實質邏輯留在 typescript/login 自己的 script 裡。
+#
+# paths filter 讓其他專案（mac/、raycast/、scripts/…）改動時，這支 workflow
+# 根本不會排隊，不消耗 runner 分鐘數。
+
+name: typescript/login
+
+on:
+  pull_request:
+    paths:
+      - "typescript/login/**"
+      - ".github/workflows/typescript-login.yml"
+  push:
+    branches: [main]
+    paths:
+      - "typescript/login/**"
+      - ".github/workflows/typescript-login.yml"
+
+defaults:
+  run:
+    working-directory: typescript/login
+
+jobs:
+  dbml:
+    name: schema.dbml 是否與 Drizzle schema 同步
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # 讀 login 的 packageManager 欄位，版本不會跟 repo 漂移
+          package_json_file: typescript/login/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: typescript/login/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @ims/db db:dbml
+
+      - name: 一致性檢查
+        run: |
+          if ! git diff --exit-code -- packages/db/docs/schema.dbml; then
+            echo "::error::schema.dbml 與 Drizzle schema 不同步。請在本地執行 'pnpm --filter @ims/db db:dbml' 並提交產物。"
+            exit 1
+          fi
