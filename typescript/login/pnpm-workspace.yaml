@@ -1,0 +1,31 @@
+# 指名底下的Packages
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# 單一版本來源。所有 workspace 用 "catalog:" 引用，只在這裡升版。
+catalog:
+  # React 版本由 Expo SDK 54 (React Native 0.81) 決定，web 跟著對齊。
+  react: 19.1.0
+  react-dom: 19.1.0
+  "@types/react": ~19.1.17
+  "@types/react-dom": ~19.1.11
+
+  typescript: ~6.0.3
+  "@types/node": ^24.13.3
+
+  zod: ^4.4.3
+
+  "@tanstack/react-query": ^5.101.4
+
+  # 列在這裡不等於已安裝——實際 dependencies 到各自的進場階段才加（見 ROADMAP 0.3）。
+  # DB（Stage 0.3）。driver 選 postgres.js 而非 pg：原生 ESM、自帶型別、免 @types/pg。
+  drizzle-orm: ^0.45.2
+  drizzle-kit: ^0.31.10
+  postgres: ^3.4.9
+
+  # 認證（Stage 0.4）
+  better-auth: ^1.6.25
+
+  # 測試 runner。@ims/policy 是純函式，測試不需要 DB 或 HTTP。
+  vitest: ^4.1.10

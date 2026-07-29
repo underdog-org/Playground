@@ -1,0 +1,4 @@
+name: lan
+variables:
+  - name: baseUrl
+    value: http://172.20.10.11:3000

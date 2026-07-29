@@ -1,0 +1,17 @@
+node_modules/
+
+# 建置產物
+dist/
+build/
+*.tsbuildinfo
+
+# Expo
+.expo/
+
+# 環境變數：只提交 .env.example
+.env
+.env.*
+!.env.example
+
+# 系統
+.DS_Store

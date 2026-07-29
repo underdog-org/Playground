@@ -1,0 +1,24 @@
+{
+  "name": "ims",
+  "private": true,
+  "scripts": {
+    "mobile": "pnpm --filter @ims/mobile start",
+    "web": "pnpm --filter @ims/web dev",
+    "server": "pnpm --filter @ims/server dev",
+    "test": "pnpm -r test",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "lint:types": "oxlint --type-aware",
+    "typecheck": "pnpm -r typecheck",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "@usebruno/cli": "^4.0.0",
+    "oxfmt": "0.60.0",
+    "oxlint": "1.75.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@10.34.5"
+}
