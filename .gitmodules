@@ -7,3 +7,6 @@
 [submodule "easy-widget"]
 	path = mac/easy-widget
 	url = git@github.com:underdog-org/easy-widget.git
+[submodule "mac/Atoll"]
+	path = mac/Atoll
+	url = git@github.com:underdog-org/Atoll.git
