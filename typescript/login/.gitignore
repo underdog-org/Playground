@@ -5,7 +5,7 @@ dist/
 build/
 *.tsbuildinfo
 
-# Expo
+# Expo（apps/mobile/.gitignore 另有 RN 專屬項目：簽章金鑰、Metro 快取等，保留）
 .expo/
 
 # 環境變數：只提交 .env.example
@@ -13,5 +13,13 @@ build/
 .env.*
 !.env.example
 
-# 系統
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 編輯器與系統
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
